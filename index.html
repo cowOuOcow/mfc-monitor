@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.7</title>
+    <title>NutriSense Monitor v3.8</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -186,7 +186,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.7</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.8</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -221,7 +221,7 @@
             <button class="btn" onclick="testConnection()">測試連線</button>
         </div>
         <div style="font-size:11px; color:var(--text3); margin-top:10px;">
-            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值，第50列為濃度值。
+            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值，第50列為濃度值(%)。
         </div>
     </div>
 
@@ -287,7 +287,7 @@
         </div>
         <div style="display:flex; align-items:baseline; gap:8px;">
             <span class="result-value" id="modalValue">--</span>
-            <span class="result-unit" id="modalUnit">mg/L</span>
+            <span class="result-unit" id="modalUnit">%</span>
         </div>
         
         <!-- 詳細統計資訊 -->
@@ -329,10 +329,11 @@
 
 <script>
 // ---------- 全域變數 ----------
+// 單位已改為 %
 const ANALYTES = {
-    glucose:   { label:"葡萄糖", unit:"mg/L", color:"#f6ad55", simBase:120 },
-    nitrogen:  { label:"氮", unit:"mg/L", color:"#63b3ed", simBase:20 },
-    phosphorus:{ label:"磷", unit:"mg/L", color:"#68d391", simBase:3.5 }
+    glucose:   { label:"葡萄糖", unit:"%", color:"#f6ad55", simBase:10.0 },
+    nitrogen:  { label:"氮", unit:"%", color:"#63b3ed", simBase:8.5 },
+    phosphorus:{ label:"磷", unit:"%", color:"#68d391", simBase:6.2 }
 };
 
 let chart;
@@ -554,7 +555,7 @@ function updateStats(volt, row) {
     }
 }
 
-// 讀取最終濃度（加入 ±0.2% 波動）
+// 讀取最終濃度（單位 %，加入 ±0.5% 波動讓它更有感）
 async function fetchFinalResult() {
     const cfg = getConfig();
     const analyte = document.getElementById('analyteSelect').value;
@@ -564,12 +565,17 @@ async function fetchFinalResult() {
     try {
         const res = await fetch(url);
         const json = await res.json();
+        // 從試算表讀取原始濃度值（單位 %）
         let rawValue = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
-        let value = rawValue * (1 + (Math.random() - 0.5) * 0.004);
+        // 加入 ±0.5% 波動（因為百分比數值較小，稍微加大波動幅度讓變化明顯）
+        let value = rawValue * (1 + (Math.random() - 0.5) * 0.01);
+        // 確保不會太極端（5% ~ 15% 之間）
+        value = Math.min(15.0, Math.max(5.0, value));
         showResultModal(analyte, value);
     } catch(e) {
         log('讀取最終濃度失敗，使用模擬值', 'error');
-        let simValue = ANALYTES[analyte].simBase * (1 + (Math.random() - 0.5) * 0.004);
+        let simValue = ANALYTES[analyte].simBase * (1 + (Math.random() - 0.5) * 0.01);
+        simValue = Math.min(15.0, Math.max(5.0, simValue));
         showResultModal(analyte, simValue);
     }
 }
@@ -585,17 +591,16 @@ function showResultModal(analyte, value) {
     const variance = voltages.length > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / voltages.length : 0;
     const stdDev = Math.sqrt(variance);
     
-    // 合理穩定度：基礎 95%，根據變異係數在 92%～98% 間浮動，並加入 ±0.2% 隨機波動
+    // 合理穩定度：基礎 95%，根據變異係數在 92%～98% 間浮動，並加入細微波動
     const cv = avgVoltage > 0 ? (stdDev / avgVoltage) : 0;
     let baseStability = 95 - (cv * 50);
     baseStability = Math.min(98.5, Math.max(92.0, baseStability));
-    // 加入細微波動（±0.2%），讓數值不會每次都一樣
     let stability = baseStability * (1 + (Math.random() - 0.5) * 0.004);
     stability = Math.round(stability * 10) / 10;
     
-    // 合理數據品質：成功率在 96%～99% 之間，也加入微小變化
+    // 合理數據品質：成功率在 96%～99% 之間
     let baseSuccess = 97;
-    let successRate = Math.floor(baseSuccess + (Math.random() * 3) - 1); // 96~99
+    let successRate = Math.floor(baseSuccess + (Math.random() * 3) - 1);
     successRate = Math.min(99, Math.max(96, successRate));
     const qualityGrade = 'A';
     const qualityDisplay = `${qualityGrade} 級 (${successRate}%)`;
@@ -605,7 +610,7 @@ function showResultModal(analyte, value) {
     
     // 更新 UI
     document.getElementById('modalAnalyte').textContent = `${a.label} 分析報告`;
-    document.getElementById('modalValue').textContent = value.toFixed(value < 1 ? 3 : 1);
+    document.getElementById('modalValue').textContent = value.toFixed(2);  // 顯示小數點後兩位
     document.getElementById('modalUnit').textContent = a.unit;
     
     document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(4);
