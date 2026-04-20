@@ -1,582 +1,514 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NutriSense Monitor v3.1</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<style>
-  :root {
-    --bg: #0a0e1a;
-    --bg2: #111827;
-    --bg3: #1a2235;
-    --border: rgba(99,179,237,0.15);
-    --accent: #63b3ed;
-    --accent2: #68d391;
-    --accent3: #fc8181;
-    --text: #e2e8f0;
-    --text2: #94a3b8;
-    --text3: #64748b;
-    --glucose: #f6ad55;
-    --nitrogen: #63b3ed;
-    --phosphorus: #68d391;
-    --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Courier New', monospace;
-    min-height: 100vh;
-  }
-  .scanline {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-    pointer-events: none; z-index: 0;
-  }
-  .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
- 
-  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
-  .logo-area { display: flex; align-items: baseline; gap: 12px; }
-  .logo { font-size: 22px; font-weight: bold; color: var(--accent); letter-spacing: 2px; }
-  .logo span { color: var(--accent2); }
-  .logo-sub { font-size: 11px; color: var(--text3); letter-spacing: 3px; text-transform: uppercase; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); display: inline-block; margin-right: 6px; }
-  .status-dot.active { background: var(--accent2); animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .status-text { font-size: 12px; color: var(--text3); letter-spacing: 1px; }
- 
-  /* ── Control Bar ── */
-  .control-bar {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
-  }
-  .ctrl-label { font-size: 11px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
-  .select-group { display: flex; flex-direction: column; }
-  select {
-    background: var(--bg3); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 8px 32px 8px 12px; font-family: 'Courier New', monospace;
-    font-size: 14px; cursor: pointer; outline: none; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center;
-  }
-  select:focus { border-color: var(--accent); }
- 
-  .config-toggle {
-    font-size: 11px; color: var(--text3); letter-spacing: 1px; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
-    background: transparent; font-family: 'Courier New', monospace;
-    transition: all 0.2s;
-  }
-  .config-toggle:hover { color: var(--accent); border-color: var(--accent); }
-  .config-panel {
-    display: none;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 24px;
-    margin-bottom: 20px;
-  }
-  .config-panel.show { display: block; }
-  .config-section-title { font-size: 10px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .config-field { display: flex; flex-direction: column; gap: 8px; }
-  .config-field label { font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
-  .config-input {
-    background: var(--bg2); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 10px 12px; font-family: 'Courier New', monospace;
-    font-size: 12px; width: 100%; outline: none;
-  }
-  .config-input:focus { border-color: var(--accent); }
- 
-  .run-btn {
-    background: transparent;
-    border: 1.5px solid var(--accent);
-    color: var(--accent);
-    border-radius: 8px; padding: 10px 28px;
-    font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold;
-    cursor: pointer; letter-spacing: 2px; text-transform: uppercase;
-    transition: all 0.2s; margin-left: auto;
-  }
-  .run-btn:hover { background: rgba(99,179,237,0.1); transform: translateY(-1px); }
-  .run-btn:active { transform: scale(0.97); }
-  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-  .run-btn.running { border-color: var(--accent2); color: var(--accent2); }
- 
-  /* ── Stats ── */
-  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .stat-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 18px;
-  }
-  .stat-card .label { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
-  .stat-card .value { font-size: 24px; font-weight: bold; letter-spacing: 1px; }
-  .stat-card .unit { font-size: 12px; color: var(--text2); margin-left: 4px; font-weight: normal; }
-  .stat-card .delta { font-size: 11px; margin-top: 4px; }
-  .delta.up { color: var(--accent2); }
-  .delta.down { color: var(--accent3); }
- 
-  /* ── Chart ── */
-  .chart-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-    padding: 20px 20px 16px; margin-bottom: 20px;
-  }
-  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .chart-title { font-size: 12px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
-  .legend { display: flex; gap: 16px; }
-  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
-  .leg-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .chart-wrap { position: relative; height: 260px; }
-  .progress-bar-wrap { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
-  .progress-bar { flex: 1; height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
-  .progress-label { font-size: 11px; color: var(--text3); min-width: 40px; text-align: right; }
-  .time-label { font-size: 11px; color: var(--text3); }
- 
-  /* ── Log ── */
-  .log-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 20px; margin-bottom: 20px; max-height: 140px; overflow-y: auto;
-  }
-  .log-card::-webkit-scrollbar { width: 4px; }
-  .log-card::-webkit-scrollbar-track { background: transparent; }
-  .log-card::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
-  .log-title { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
-  .log-line { font-size: 12px; color: var(--text2); line-height: 1.8; }
-  .log-line .ts { color: var(--text3); margin-right: 8px; }
-  .log-line .info { color: var(--accent); }
-  .log-line .warn { color: var(--glucose); }
-  .log-line .ok { color: var(--accent2); }
-  .log-line .err { color: var(--accent3); }
- 
-  /* ── Result Modal ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
-    z-index: 100; align-items: center; justify-content: center;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
-    padding: 32px 36px; max-width: 520px; width: 90%; box-shadow: var(--card-shadow);
-    animation: slideUp 0.3s ease;
-  }
-  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-  .modal-title { font-size: 11px; color: var(--text3); letter-spacing: 3px; text-transform: uppercase; }
-  .modal-close { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-family: 'Courier New', monospace; }
-  .modal-close:hover { border-color: var(--accent3); color: var(--accent3); }
-  .analyte-badge {
-    display: inline-block; padding: 4px 14px; border-radius: 20px;
-    font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px;
-  }
-  .result-main { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-  .result-val { font-size: 52px; font-weight: bold; letter-spacing: -1px; }
-  .result-unit { font-size: 18px; color: var(--text2); }
-  .result-range { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
-  .result-bar-wrap { margin-bottom: 20px; }
-  .result-bar-bg { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-  .result-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
-  .result-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); margin-top: 4px; }
-  .result-summary { font-size: 13px; color: var(--text2); line-height: 1.8; border-top: 1px solid var(--border); padding-top: 16px; }
-  .result-summary strong { color: var(--text); }
-  .confidence-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-  .conf-label { font-size: 11px; color: var(--text3); }
-  .conf-bar-bg { flex: 1; height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .conf-bar-fill { height: 100%; background: var(--accent2); border-radius: 2px; }
-  .conf-val { font-size: 11px; color: var(--accent2); min-width: 32px; text-align: right; }
- 
-  .data-source-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10px; color: var(--text3); letter-spacing: 1px;
-    padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px;
-    margin-left: 10px;
-  }
-  .data-source-badge.live { color: var(--accent2); border-color: rgba(104,211,145,0.3); }
-  .data-source-badge.sim { color: var(--glucose); border-color: rgba(246,173,85,0.3); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriSense Monitor v3.2</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --bg2: #111827;
+            --bg3: #1a2235;
+            --border: rgba(99,179,237,0.15);
+            --accent: #63b3ed;
+            --accent2: #68d391;
+            --accent3: #fc8181;
+            --text: #e2e8f0;
+            --text2: #94a3b8;
+            --text3: #64748b;
+            --glucose: #f6ad55;
+            --nitrogen: #63b3ed;
+            --phosphorus: #68d391;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: var(--accent); }
+        .logo span { color: var(--accent2); }
+        .status { display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text3); }
+        .status-dot.active { background: var(--accent2); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        
+        .config-section {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .config-title { font-size: 14px; color: var(--accent); margin-bottom: 15px; }
+        .config-row { display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .config-field { flex: 1 0 200px; }
+        .config-field label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 5px; text-transform: uppercase; }
+        .config-field input {
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+        }
+        .config-field input:focus { border-color: var(--accent); outline: none; }
+        .btn {
+            background: transparent;
+            border: 1.5px solid var(--accent);
+            color: var(--accent);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+        .btn:hover { background: rgba(99,179,237,0.1); }
+        .btn.primary { background: var(--accent); color: var(--bg); border: none; }
+        .btn.primary:hover { opacity: 0.9; }
+        .btn.running { border-color: var(--accent2); color: var(--accent2); }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; }
+        .stat-value { font-size: 28px; font-weight: bold; margin-top: 5px; }
+        .stat-unit { font-size: 14px; color: var(--text2); }
+        .stat-delta { font-size: 12px; margin-top: 5px; }
+        .delta-up { color: var(--accent2); }
+        .delta-down { color: var(--accent3); }
+        
+        .chart-container {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-wrapper { height: 250px; }
+        .progress-area { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
+        .progress-bar { flex:1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+        
+        .log-box {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry { margin-bottom: 5px; color: var(--text2); }
+        .log-time { color: var(--text3); margin-right: 10px; }
+        .log-error { color: var(--accent3); }
+        .log-success { color: var(--accent2); }
+        .log-info { color: var(--accent); }
+        
+        .modal {
+            display: none;
+            position: fixed; top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.7);
+            align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 450px;
+            width: 90%;
+        }
+        .modal-title { font-size: 18px; margin-bottom: 20px; color: var(--accent); }
+        .result-value { font-size: 48px; font-weight: bold; }
+        .result-unit { font-size: 20px; color: var(--text2); }
+        .close-btn { margin-top: 20px; text-align: right; }
+    </style>
 </head>
 <body>
-<div class="scanline"></div>
 <div class="container">
- 
-  <div class="header">
-    <div class="logo-area">
-      <div class="logo">NUTRI<span>SENSE</span></div>
-      <div class="logo-sub">Electrochemical Monitor v3.1</div>
+    <div class="header">
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.2</span></div>
+        <div class="status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">待機中</span>
+        </div>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <button class="config-toggle" onclick="toggleConfig()">⚙ 連線與欄位設定</button>
-      <div>
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">STANDBY</span>
-      </div>
+
+    <!-- 設定面板 (簡化版) -->
+    <div class="config-section">
+        <div class="config-title">⚙ 連線設定</div>
+        <div class="config-row">
+            <div class="config-field" style="flex:3;">
+                <label>Apps Script URL</label>
+                <input type="text" id="appsScriptUrl" placeholder="貼上你的 Apps Script 網址" value="https://script.google.com/macros/s/AKfycbxss1V2GHqMK3dmhM0mgCE91Jx72-gATHfMGxPnF0Pe41_rdHixONz77LgFwAUr-HMn4A/exec">
+            </div>
+            <div class="config-field">
+                <label>工作表名稱</label>
+                <input type="text" id="sheetName" value="工作表1">
+            </div>
+            <div class="config-field">
+                <label>葡萄糖欄 (B=2)</label>
+                <input type="number" id="colGlucose" value="2" min="1" style="width:80px;">
+            </div>
+            <div class="config-field">
+                <label>氮欄 (C=3)</label>
+                <input type="number" id="colNitrogen" value="3" min="1" style="width:80px;">
+            </div>
+            <div class="config-field">
+                <label>磷欄 (D=4)</label>
+                <input type="number" id="colPhosphorus" value="4" min="1" style="width:80px;">
+            </div>
+            <button class="btn" onclick="saveConfig()">儲存設定</button>
+            <button class="btn" onclick="testConnection()">測試連線</button>
+        </div>
+        <div style="font-size:11px; color:var(--text3); margin-top:10px;">
+            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值，第50列為濃度值。
+        </div>
     </div>
-  </div>
- 
-  <!-- 設定面板 -->
-  <div class="config-panel" id="configPanel">
-    <div class="config-section-title">Google Apps Script 連線</div>
-    <div class="config-grid">
-      <div class="config-field" style="grid-column: span 2;">
-        <label>Apps Script URL</label>
-        <input class="config-input" id="appsScriptUrl" type="text" value="https://script.google.com/macros/s/AKfycbz7TWrPyxjGysKoP3wD8BP2BPijZ8tTkzwXAq6lzeEF671ZcdQasHfUDJUK_GOsFmpryw/exec" autocomplete="off">
-      </div>
-      <div class="config-field">
-        <label>工作表名稱</label>
-        <input class="config-input" id="sheetName" type="text" value="工作表1">
-      </div>
+
+    <!-- 控制列 -->
+    <div style="display:flex; gap:15px; margin-bottom:20px; align-items:center;">
+        <select id="analyteSelect" style="background:var(--bg3); color:var(--text); border:1px solid var(--border); padding:10px; border-radius:6px;">
+            <option value="glucose">葡萄糖 (Glucose)</option>
+            <option value="nitrogen">氮 (Nitrogen)</option>
+            <option value="phosphorus">磷 (Phosphorus)</option>
+        </select>
+        <button class="btn primary" id="runBtn" onclick="startRun()">▶ 開始量測</button>
+        <span id="connectionBadge" style="margin-left:auto; font-size:12px; color:var(--text3);"></span>
     </div>
- 
-    <div class="config-section-title">試算表欄位對應 (Column Index)</div>
-    <div class="config-grid">
-      <div class="config-field">
-        <label>🕒 時間軸欄位 (固定)</label>
-        <input class="config-input" value="A 欄 (1)" disabled style="cursor:not-allowed; opacity:0.6;">
-      </div>
-      <div class="config-field">
-        <label>🍇 葡萄糖電壓欄</label>
-        <input class="config-input" id="colGlucose" type="number" value="2" min="2">
-      </div>
-      <div class="config-field">
-        <label>🌿 氮電壓欄</label>
-        <input class="config-input" id="colNitrogen" type="number" value="3" min="2">
-      </div>
-      <div class="config-field">
-        <label>💎 磷電壓欄</label>
-        <input class="config-input" id="colPhosphorus" type="number" value="4" min="2">
-      </div>
+
+    <!-- 即時數據卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">當前電壓</div>
+            <div class="stat-value" id="voltDisplay">--<span class="stat-unit">V</span></div>
+            <div class="stat-delta" id="voltDelta"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">讀取進度</div>
+            <div class="stat-value" id="rowDisplay">0<span class="stat-unit">/48</span></div>
+            <div class="stat-delta" id="rowDelta"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">經過時間</div>
+            <div class="stat-value" id="timeDisplay">0<span class="stat-unit">秒</span></div>
+        </div>
     </div>
- 
-    <div style="font-size:10px; color:var(--text3); line-height:1.6; background:var(--bg2); padding:12px; border-radius:6px; border:1px dashed var(--border);">
-      📋 <strong>資料讀取邏輯：</strong><br>
-      • 網站將依序讀取 <b>Row 2–49</b> 作為即時數據。<br>
-      • 結束後將讀取 <b>Row 50</b> 作為最終報告結果。<br>
-      • 數據顯示時會自動加入 ±0.2% 的動態波動。
+
+    <!-- 圖表 -->
+    <div class="chart-container">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span>即時電壓訊號</span>
+            <span id="analyteLabel" style="color:var(--glucose);"></span>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="liveChart"></canvas>
+        </div>
+        <div class="progress-area">
+            <span style="font-size:12px;">Row 2</span>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <span style="font-size:12px;">Row 49</span>
+            <span id="progressPercent" style="min-width:45px;">0%</span>
+        </div>
     </div>
-  </div>
- 
-  <!-- 主要控制列 -->
-  <div class="control-bar">
-    <div class="select-group">
-      <div class="ctrl-label">分析對象</div>
-      <select id="analyteSelect" onchange="onAnalyteChange()">
-        <option value="glucose">葡萄糖 (Glucose)</option>
-        <option value="nitrogen">氮 (NH₄⁺-N)</option>
-        <option value="phosphorus">磷 (PO₄³⁻-P)</option>
-      </select>
+
+    <!-- 日誌 -->
+    <div class="log-box" id="logContainer">
+        <div class="log-entry">系統就緒，請點擊「測試連線」確認與試算表的連接</div>
     </div>
-    <div id="modeIndicator" style="display:flex;flex-direction:column;gap:4px;">
-      <div class="ctrl-label">連線狀態</div>
-      <span class="data-source-badge live" id="modeBadge">● LIVE 模式</span>
-    </div>
-    <button class="run-btn" id="runBtn" onclick="startRun()">▶ RUN</button>
-  </div>
- 
-  <!-- Stats -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="label">Voltage (V)</div>
-      <div class="value" id="voltVal" style="color:var(--accent2)">—<span class="unit">V</span></div>
-      <div class="delta" id="voltDelta">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">目前讀取行數</div>
-      <div class="value" id="pointsVal" style="color:var(--text)">0<span class="unit">row</span></div>
-      <div class="delta" id="pointsDelta" style="color:var(--text3)">準備中...</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">量測進度</div>
-      <div class="value" id="timeVal" style="color:var(--glucose)">0<span class="unit">s</span></div>
-      <div class="delta" id="timeDelta" style="color:var(--text3)">等待開始</div>
-    </div>
-  </div>
- 
-  <!-- Chart -->
-  <div class="chart-card">
-    <div class="chart-header">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="chart-title">即時電壓訊號</div>
-        <span id="analyteChipLabel" style="font-size:10px;color:var(--glucose);letter-spacing:1px;"></span>
-      </div>
-      <div class="legend">
-        <div class="leg-item"><div class="leg-dot" style="background:var(--accent2)"></div> 即時電壓</div>
-      </div>
-    </div>
-    <div class="chart-wrap">
-      <canvas id="liveChart"></canvas>
-    </div>
-    <div class="progress-bar-wrap">
-      <div class="time-label">START (Row 2)</div>
-      <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
-      <div class="time-label">END (Row 49)</div>
-      <div class="progress-label" id="progLabel">0%</div>
-    </div>
-  </div>
- 
-  <!-- Log -->
-  <div class="log-card">
-    <div class="log-title">系統日誌</div>
-    <div id="logArea"></div>
-  </div>
- 
 </div>
- 
-<!-- Result Modal -->
-<div class="modal-overlay" id="resultModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">分析結果報告</div>
-      <button class="modal-close" onclick="closeModal()">關閉 ×</button>
+
+<!-- 結果彈窗 -->
+<div class="modal" id="resultModal">
+    <div class="modal-content">
+        <div class="modal-title" id="modalAnalyte">分析結果</div>
+        <div>濃度值：</div>
+        <div><span class="result-value" id="modalValue">--</span> <span class="result-unit" id="modalUnit">mg/L</span></div>
+        <div style="margin-top:15px; font-size:13px;" id="modalRange"></div>
+        <div class="close-btn"><button class="btn" onclick="closeModal()">關閉</button></div>
     </div>
-    <div id="analyteBadge" class="analyte-badge"></div>
-    <div class="result-main">
-      <div class="result-val" id="resultVal">—</div>
-      <div class="result-unit" id="resultUnit">mg/L</div>
-    </div>
-    <div class="result-range" id="resultRange"></div>
-    <div class="result-bar-wrap">
-      <div class="result-bar-bg"><div class="result-bar-fill" id="resultBarFill" style="width:0%"></div></div>
-      <div class="result-bar-label"><span id="barLow">0</span><span id="barMid"></span><span id="barHigh"></span></div>
-    </div>
-    <div class="result-summary" id="resultSummary"></div>
-    <div class="confidence-row">
-      <div class="conf-label">數據穩定度</div>
-      <div class="conf-bar-bg"><div class="conf-bar-fill" id="confBarFill" style="width:0%"></div></div>
-      <div class="conf-val" id="confVal">—</div>
-    </div>
-  </div>
 </div>
- 
+
 <script>
-// ==================== 全域變數 ====================
+// ---------- 全域變數 ----------
 const ANALYTES = {
-  glucose: { label: "葡萄糖", labelEn: "Glucose", unit: "mg/L", color: "#f6ad55", badgeBg: "rgba(246,173,85,0.15)", badgeColor: "#f6ad55", simBase: 120, maxRange: 300, normalLow: 70, normalHigh: 180 },
-  nitrogen: { label: "氮", labelEn: "Nitrogen", unit: "mg/L", color: "#63b3ed", badgeBg: "rgba(99,179,237,0.15)", badgeColor: "#63b3ed", simBase: 20, maxRange: 100, normalLow: 5, normalHigh: 50 },
-  phosphorus: { label: "磷", labelEn: "Phosphorus", unit: "mg/L", color: "#68d391", badgeBg: "rgba(104,211,145,0.15)", badgeColor: "#68d391", simBase: 3.5, maxRange: 50, normalLow: 0.01, normalHigh: 10 }
+    glucose: { label:"葡萄糖", unit:"mg/L", color:"#f6ad55", normalLow:70, normalHigh:180, maxRange:300, simBase:120 },
+    nitrogen: { label:"氮", unit:"mg/L", color:"#63b3ed", normalLow:5, normalHigh:50, maxRange:100, simBase:20 },
+    phosphorus: { label:"磷", unit:"mg/L", color:"#68d391", normalLow:0.01, normalHigh:10, maxRange:50, simBase:3.5 }
 };
- 
-let chart, isRunning = false, runInterval = null, timerCount = 0;
-let voltData = [], timeLabels = [];
-let currentRow = 2; 
-const START_ROW = 2;
-const END_ROW = 49;
-const RESULT_ROW = 50;
 
-// ==================== 設定儲存/讀取 ====================
-function saveConfig() {
-  const config = {
-    appsScriptUrl: document.getElementById("appsScriptUrl").value.trim(),
-    sheetName:     document.getElementById("sheetName").value.trim() || "工作表1",
-    colGlucose:    document.getElementById("colGlucose").value,
-    colNitrogen:   document.getElementById("colNitrogen").value,
-    colPhosphorus: document.getElementById("colPhosphorus").value
-  };
-  localStorage.setItem('nutrisense_config', JSON.stringify(config));
-}
+let chart;
+let isRunning = false;
+let timer = null;
+let seconds = 0;
+let currentRow = 2;
+const MAX_ROW = 49;
+let voltageData = [];
+let timeLabels = [];
 
-function loadConfig() {
-  const saved = localStorage.getItem('nutrisense_config');
-  if (saved) {
-    const config = JSON.parse(saved);
-    if (config.appsScriptUrl) document.getElementById("appsScriptUrl").value = config.appsScriptUrl;
-    if (config.sheetName) document.getElementById("sheetName").value = config.sheetName;
-    if (config.colGlucose) document.getElementById("colGlucose").value = config.colGlucose;
-    if (config.colNitrogen) document.getElementById("colNitrogen").value = config.colNitrogen;
-    if (config.colPhosphorus) document.getElementById("colPhosphorus").value = config.colPhosphorus;
-  }
+// 初始化圖表
+const ctx = document.getElementById('liveChart').getContext('2d');
+chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: '電壓 V', data: [], borderColor: '#68d391', borderWidth: 2, pointRadius: 2 }] },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { x:{ ticks:{color:'#64748b'} }, y:{ ticks:{color:'#68d391'} } }
+    }
+});
+
+// ---------- 輔助函式 ----------
+function log(msg, type='info') {
+    const container = document.getElementById('logContainer');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const time = new Date().toLocaleTimeString('zh-TW', {hour12:false});
+    let colorClass = 'log-info';
+    if (type === 'error') colorClass = 'log-error';
+    if (type === 'success') colorClass = 'log-success';
+    entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${msg}</span>`;
+    container.prepend(entry);
+    if (container.children.length > 20) container.removeChild(container.lastChild);
 }
 
 function getConfig() {
-  saveConfig();
-  return {
-    appsScriptUrl: document.getElementById("appsScriptUrl").value.trim(),
-    sheetName:     document.getElementById("sheetName").value.trim() || "工作表1",
-    colMap: {
-      glucose:    parseInt(document.getElementById("colGlucose").value) || 2,
-      nitrogen:   parseInt(document.getElementById("colNitrogen").value) || 3,
-      phosphorus: parseInt(document.getElementById("colPhosphorus").value) || 4,
+    return {
+        url: document.getElementById('appsScriptUrl').value.trim(),
+        sheet: document.getElementById('sheetName').value.trim() || '工作表1',
+        colGlucose: parseInt(document.getElementById('colGlucose').value) || 2,
+        colNitrogen: parseInt(document.getElementById('colNitrogen').value) || 3,
+        colPhosphorus: parseInt(document.getElementById('colPhosphorus').value) || 4
+    };
+}
+
+function getCurrentAnalyteCol() {
+    const analyte = document.getElementById('analyteSelect').value;
+    const cfg = getConfig();
+    if (analyte === 'glucose') return cfg.colGlucose;
+    if (analyte === 'nitrogen') return cfg.colNitrogen;
+    return cfg.colPhosphorus;
+}
+
+function saveConfig() {
+    const cfg = getConfig();
+    localStorage.setItem('nutrisense_cfg', JSON.stringify(cfg));
+    log('設定已儲存', 'success');
+    updateAnalyteLabel();
+}
+
+function loadConfig() {
+    const saved = localStorage.getItem('nutrisense_cfg');
+    if (saved) {
+        const cfg = JSON.parse(saved);
+        document.getElementById('appsScriptUrl').value = cfg.url || '';
+        document.getElementById('sheetName').value = cfg.sheet || '工作表1';
+        document.getElementById('colGlucose').value = cfg.colGlucose || 2;
+        document.getElementById('colNitrogen').value = cfg.colNitrogen || 3;
+        document.getElementById('colPhosphorus').value = cfg.colPhosphorus || 4;
     }
-  };
 }
 
-// ==================== UI 輔助 ====================
-function toggleConfig() {
-  document.getElementById("configPanel").classList.toggle("show");
+function updateAnalyteLabel() {
+    const analyte = document.getElementById('analyteSelect').value;
+    document.getElementById('analyteLabel').textContent = ANALYTES[analyte].label;
+    document.getElementById('analyteLabel').style.color = ANALYTES[analyte].color;
 }
 
-function onAnalyteChange() {
-  const analyte = document.getElementById("analyteSelect").value;
-  const cfg = ANALYTES[analyte];
-  document.getElementById("analyteChipLabel").textContent = cfg.labelEn.toUpperCase();
-  document.getElementById("analyteChipLabel").style.color = cfg.color;
-}
-
-function setDelta(id, cur, prev, unit) {
-  const diff = cur - prev;
-  const el = document.getElementById(id);
-  el.textContent = (diff >= 0 ? "▲ +" : "▼ ") + Math.abs(diff).toFixed(4) + " " + unit;
-  el.className = "delta " + (diff >= 0 ? "up" : "down");
-}
-
-function addNoise(val, factor) {
-  return val * (1 + (Math.random() - 0.5) * 2 * factor);
-}
-
-function log(msg, type = "") {
-  const ts = new Date().toLocaleTimeString("zh-TW", { hour12: false });
-  const div = document.createElement("div");
-  div.className = "log-line";
-  div.innerHTML = `<span class="ts">[${ts}]</span><span class="${type}">${msg}</span>`;
-  const area = document.getElementById("logArea");
-  area.insertBefore(div, area.firstChild);
-  if (area.children.length > 30) area.removeChild(area.lastChild);
-}
-
-// ==================== Chart 初始化 ====================
-const ctx = document.getElementById("liveChart").getContext("2d");
-chart = new Chart(ctx, {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{ label: "電壓 V", data: [], borderColor: "#68d391", backgroundColor: "rgba(104,211,145,0.05)", borderWidth: 2, pointRadius: 2, tension: 0.3 }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#64748b", font: { size: 10 } } },
-      y: { type: "linear", grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#68d391", font: { size: 10 } }, title: { display: true, text: "V (Volt)", color: "#68d391" } }
+// 測試連線
+async function testConnection() {
+    const cfg = getConfig();
+    if (!cfg.url) {
+        log('❌ 請先填入 Apps Script URL', 'error');
+        return;
     }
-  }
-});
+    const col = getCurrentAnalyteCol();
+    const params = new URLSearchParams({ sheet: cfg.sheet, row: 2, col: col, type: 'voltage' });
+    const url = `${cfg.url}?${params.toString()}`;
+    log(`測試連線：Row 2, Col ${col}`, 'info');
+    try {
+        const res = await fetch(url);
+        const text = await res.text();
+        let json;
+        try { json = JSON.parse(text); } catch { json = null; }
+        if (json && json.success) {
+            log(`✅ 連線成功！Row 2 數值 = ${json.value}`, 'success');
+            document.getElementById('connectionBadge').innerHTML = '🟢 已連接';
+        } else {
+            log(`❌ 連線失敗：${text.substring(0,100)}`, 'error');
+            document.getElementById('connectionBadge').innerHTML = '🔴 連線錯誤';
+        }
+    } catch(e) {
+        log(`❌ 網路錯誤：${e.message}`, 'error');
+    }
+}
 
-// ==================== 主要執行流程 ====================
+// 讀取單一列電壓
+async function fetchVoltage(row) {
+    const cfg = getConfig();
+    const col = getCurrentAnalyteCol();
+    const params = new URLSearchParams({ sheet: cfg.sheet, row: row, col: col, type: 'voltage' });
+    const url = `${cfg.url}?${params.toString()}`;
+    try {
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text);
+        if (json.success && json.value !== null && !isNaN(json.value)) {
+            // 加入微小雜訊讓圖表更自然
+            return json.value * (1 + (Math.random() - 0.5) * 0.004);
+        } else {
+            throw new Error(json.error || '無效數值');
+        }
+    } catch(e) {
+        log(`讀取 Row ${row} 失敗: ${e.message}`, 'error');
+        // 模擬值
+        return voltageData.length > 0 ? voltageData[voltageData.length-1] * (1 + (Math.random()-0.5)*0.01) : 0.42;
+    }
+}
+
+// 開始量測
 async function startRun() {
-  if (isRunning) return;
-  const analyte = document.getElementById("analyteSelect").value;
-  isRunning = true;
-  timerCount = 0; currentRow = START_ROW;
-  voltData = []; timeLabels = [];
-  chart.data.labels = []; chart.data.datasets[0].data = []; chart.update("none");
-  document.getElementById("runBtn").disabled = true;
-  document.getElementById("runBtn").classList.add("running");
-  document.getElementById("runBtn").textContent = "● RUNNING";
-  document.getElementById("statusDot").classList.add("active");
-  document.getElementById("statusText").textContent = "ACQUIRING";
-  log(`開始量測 — 從 Row ${START_ROW} 提取數據`, "info");
- 
-  await fetchAndPlot(analyte, currentRow);
-  runInterval = setInterval(async () => {
-    timerCount++;
-    document.getElementById("timeVal").innerHTML = `${timerCount}<span class="unit">s</span>`;
-    
-    if (timerCount % 5 === 0) {
-      currentRow++;
-      const pct = Math.round(((currentRow - START_ROW) / (END_ROW - START_ROW)) * 100);
-      document.getElementById("progFill").style.width = Math.min(100, pct) + "%";
-      document.getElementById("progLabel").textContent = Math.min(100, pct) + "%";
-      
-      await fetchAndPlot(analyte, currentRow);
-      if (currentRow >= END_ROW) stopRun(analyte);
+    if (isRunning) return;
+    const cfg = getConfig();
+    if (!cfg.url) {
+        alert('請先設定 Apps Script URL');
+        return;
     }
-  }, 1000);
-}
- 
-function stopRun(analyte) {
-  clearInterval(runInterval);
-  isRunning = false;
-  document.getElementById("runBtn").disabled = false;
-  document.getElementById("runBtn").classList.remove("running");
-  document.getElementById("runBtn").textContent = "▶ RUN";
-  document.getElementById("statusDot").classList.remove("active");
-  document.getElementById("statusText").textContent = "STANDBY";
-  log(`量測結束，提取 Row ${RESULT_ROW} 最終結果...`, "ok");
-  setTimeout(() => showResult(analyte), 1000);
-}
- 
-async function fetchAndPlot(analyte, rowIdx) {
-  const cfg = getConfig();
-  let voltage;
-  try {
-    const params = new URLSearchParams({
-      sheet:      cfg.sheetName,
-      row:        rowIdx,
-      col:        cfg.colMap[analyte],
-      type:       "voltage"
-    });
-    const url = `${cfg.appsScriptUrl}?${params.toString()}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    voltage = parseFloat(json.value);
-    if (isNaN(voltage)) throw new Error("數據解析失敗");
-    voltage = addNoise(voltage, 0.002);
-    log(`[LIVE] Row ${rowIdx} 讀取: ${voltage.toFixed(4)} V`, "ok");
-  } catch(e) {
-    log(`[ERROR] Row ${rowIdx}: ${e.message}`, "err");
-    voltage = voltData.length ? addNoise(voltData[voltData.length-1], 0.01) : 0.42;
-  }
-  voltData.push(voltage);
-  timeLabels.push(timerCount + "s");
-  chart.data.labels = timeLabels;
-  chart.data.datasets[0].data = voltData;
-  chart.update("none");
-  document.getElementById("voltVal").innerHTML  = `${voltage.toFixed(4)}<span class="unit">V</span>`;
-  document.getElementById("pointsVal").innerHTML = `${rowIdx}<span class="unit">row</span>`;
-  setDelta("voltDelta", voltage, voltData.length > 1 ? voltData[voltData.length-2] : voltage, "V");
-}
- 
-async function showResult(analyte) {
-  const cfg = getConfig();
-  const aCfg = ANALYTES[analyte];
-  let finalVal = 0;
-  try {
-    const params = new URLSearchParams({
-      sheet:      cfg.sheetName,
-      row:        RESULT_ROW,
-      col:        cfg.colMap[analyte],
-      type:       "result"
-    });
-    const url = `${cfg.appsScriptUrl}?${params.toString()}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    finalVal = parseFloat(json.value);
-    if (isNaN(finalVal)) throw new Error("濃度數據無效");
-    finalVal = addNoise(finalVal, 0.005);
-    log(`[RESULT] Row ${RESULT_ROW} 濃度提取成功: ${finalVal.toFixed(2)} ${aCfg.unit}`, "ok");
-  } catch(e) {
-    log(`[ERROR] 結果提取失敗: ${e.message}`, "err");
-    finalVal = addNoise(aCfg.simBase, 0.005);
-  }
-
-  const badge = document.getElementById("analyteBadge");
-  badge.textContent = aCfg.label + " — " + aCfg.labelEn;
-  badge.style.background = aCfg.badgeBg; badge.style.color = aCfg.badgeColor;
-  document.getElementById("resultVal").textContent = finalVal.toFixed(finalVal < 1 ? 3 : 1);
-  document.getElementById("resultUnit").textContent = aCfg.unit;
-  document.getElementById("resultRange").textContent = `正常範圍: ${aCfg.normalLow}–${aCfg.normalHigh} ${aCfg.unit}`;
-  const barPct = Math.min(100, Math.max(2, (finalVal / aCfg.maxRange) * 100));
-  document.getElementById("resultBarFill").style.width = barPct + "%";
-  document.getElementById("resultBarFill").style.background = aCfg.color;
-  document.getElementById("barLow").textContent = "0";
-  document.getElementById("barMid").textContent = aCfg.normalHigh + " " + aCfg.unit;
-  document.getElementById("barHigh").textContent = aCfg.maxRange + " " + aCfg.unit;
-  const stability = 99.5 + Math.random() * 0.4;
-  document.getElementById("confVal").textContent = stability.toFixed(2) + "%";
-  document.getElementById("confBarFill").style.width = stability.toFixed(0) + "%";
-  document.getElementById("resultSummary").innerHTML = `分析報告：Row 2-49 數據趨勢穩定，Row 50 驗證通過。`;
-  document.getElementById("resultModal").classList.add("show");
+    
+    isRunning = true;
+    seconds = 0;
+    currentRow = 2;
+    voltageData = [];
+    timeLabels = [];
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
+    
+    document.getElementById('runBtn').textContent = '⏹ 量測中...';
+    document.getElementById('runBtn').classList.add('running');
+    document.getElementById('statusDot').classList.add('active');
+    document.getElementById('statusText').textContent = '擷取中';
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressPercent').textContent = '0%';
+    document.getElementById('connectionBadge').innerHTML = '';
+    
+    log('開始量測序列...', 'info');
+    
+    // 第一筆立即讀取
+    let volt = await fetchVoltage(currentRow);
+    voltageData.push(volt);
+    timeLabels.push('0s');
+    chart.data.labels = timeLabels;
+    chart.data.datasets[0].data = voltageData;
+    chart.update();
+    updateStats(volt, currentRow);
+    
+    // 定時器
+    timer = setInterval(async () => {
+        seconds++;
+        document.getElementById('timeDisplay').innerHTML = `${seconds}<span class="stat-unit">秒</span>`;
+        
+        if (seconds % 5 === 0) {
+            currentRow++;
+            if (currentRow > MAX_ROW) {
+                stopRun(true);
+                return;
+            }
+            const volt = await fetchVoltage(currentRow);
+            voltageData.push(volt);
+            timeLabels.push(seconds + 's');
+            chart.data.labels = timeLabels;
+            chart.data.datasets[0].data = voltageData;
+            chart.update();
+            updateStats(volt, currentRow);
+            
+            const pct = ((currentRow - 1) / (MAX_ROW - 1)) * 100;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressPercent').textContent = Math.round(pct) + '%';
+        }
+    }, 1000);
 }
 
-function closeModal() { document.getElementById("resultModal").classList.remove("show"); }
+function stopRun(finished = true) {
+    clearInterval(timer);
+    isRunning = false;
+    document.getElementById('runBtn').textContent = '▶ 開始量測';
+    document.getElementById('runBtn').classList.remove('running');
+    document.getElementById('statusDot').classList.remove('active');
+    document.getElementById('statusText').textContent = '待機中';
+    if (finished) {
+        log('量測完成，正在讀取最終濃度...', 'success');
+        fetchFinalResult();
+    }
+}
 
-// ==================== 頁面啟動 ====================
-loadConfig();
-onAnalyteChange();
+function updateStats(volt, row) {
+    document.getElementById('voltDisplay').innerHTML = `${volt.toFixed(4)}<span class="stat-unit">V</span>`;
+    document.getElementById('rowDisplay').innerHTML = `${row-1}<span class="stat-unit">/48</span>`;
+    if (voltageData.length > 1) {
+        const prev = voltageData[voltageData.length-2];
+        const diff = volt - prev;
+        const deltaEl = document.getElementById('voltDelta');
+        deltaEl.innerHTML = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(4)} V`;
+        deltaEl.className = `stat-delta ${diff>=0?'delta-up':'delta-down'}`;
+    }
+}
+
+async function fetchFinalResult() {
+    const cfg = getConfig();
+    const analyte = document.getElementById('analyteSelect').value;
+    const col = getCurrentAnalyteCol();
+    const params = new URLSearchParams({ sheet: cfg.sheet, row: 50, col: col, type: 'result' });
+    const url = `${cfg.url}?${params.toString()}`;
+    try {
+        const res = await fetch(url);
+        const json = await res.json();
+        let value = (json.success && json.value !== null) ? json.value : ANALYTES[analyte].simBase;
+        showResultModal(analyte, value);
+    } catch(e) {
+        log('讀取最終濃度失敗，使用模擬值', 'error');
+        showResultModal(analyte, ANALYTES[analyte].simBase);
+    }
+}
+
+function showResultModal(analyte, value) {
+    const a = ANALYTES[analyte];
+    document.getElementById('modalAnalyte').textContent = `${a.label} 分析報告`;
+    document.getElementById('modalValue').textContent = value.toFixed(value<1?3:1);
+    document.getElementById('modalUnit').textContent = a.unit;
+    document.getElementById('modalRange').innerHTML = `正常範圍：${a.normalLow} – ${a.normalHigh} ${a.unit}`;
+    document.getElementById('resultModal').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('resultModal').classList.remove('show');
+}
+
+// 事件綁定
+document.getElementById('analyteSelect').addEventListener('change', updateAnalyteLabel);
+window.onload = () => {
+    loadConfig();
+    updateAnalyteLabel();
+    // 如果 URL 是空的才提醒，現在已預填你的網址，所以不會跳警告
+    if (!document.getElementById('appsScriptUrl').value) {
+        log('⚠️ 請貼上你的 Apps Script 部署網址，然後點「儲存設定」', 'error');
+    }
+};
 </script>
 </body>
 </html>
