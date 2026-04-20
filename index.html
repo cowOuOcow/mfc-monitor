@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NutriSense Monitor v2.4</title>
+<title>NutriSense Monitor v2.5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   :root {
@@ -78,16 +78,17 @@
     background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 16px 20px;
+    padding: 24px;
     margin-bottom: 20px;
   }
   .config-panel.show { display: block; }
-  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .config-field { display: flex; flex-direction: column; gap: 6px; }
-  .config-field label { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
+  .config-section-title { font-size: 10px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .config-field { display: flex; flex-direction: column; gap: 8px; }
+  .config-field label { font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
   .config-input {
     background: var(--bg2); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 8px 12px; font-family: 'Courier New', monospace;
+    border-radius: 6px; padding: 10px 12px; font-family: 'Courier New', monospace;
     font-size: 12px; width: 100%; outline: none;
   }
   .config-input:focus { border-color: var(--accent); }
@@ -206,7 +207,7 @@
   <div class="header">
     <div class="logo-area">
       <div class="logo">NUTRI<span>SENSE</span></div>
-      <div class="logo-sub">Electrochemical Monitor v2.4</div>
+      <div class="logo-sub">Electrochemical Monitor v2.5</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <button class="config-toggle" onclick="toggleConfig()">⚙ 資料來源設定</button>
@@ -217,50 +218,50 @@
     </div>
   </div>
  
-  <!-- ══ 隱藏設定面板 ══ -->
+  <!-- ══ 修正後的設定面板 ══ -->
   <div class="config-panel" id="configPanel">
+    <div class="config-section-title">基礎連線設定</div>
     <div class="config-grid">
       <div class="config-field">
         <label>Apps Script URL</label>
-        <input class="config-input" id="appsScriptUrl" type="password"
-          placeholder="https://script.google.com/macros/s/..." autocomplete="off">
+        <input class="config-input" id="appsScriptUrl" type="password" placeholder="https://script.google.com/macros/s/..." autocomplete="off">
       </div>
       <div class="config-field">
         <label>Google Sheet ID</label>
-        <input class="config-input" id="sheetId" type="password"
-          placeholder="貼上你的 Sheet ID..." autocomplete="off">
+        <input class="config-input" id="sheetId" type="password" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" autocomplete="off">
       </div>
       <div class="config-field">
-        <label>工作表名稱</label>
+        <label>工作表名稱 (Sheet Name)</label>
         <input class="config-input" id="sheetName" type="text" placeholder="Sheet1" value="Sheet1">
-      </div>
-      <div class="config-field">
-        <label>時間戳記欄位 (Col)</label>
-        <input class="config-input" id="colTime" type="number" placeholder="1" value="1" min="1">
       </div>
     </div>
  
-    <div style="margin-top:12px;font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">欄位對應設定</div>
+    <div class="config-section-title">試算表欄位對應 (Column Index)</div>
     <div class="config-grid">
+      <div class="config-field" style="border: 1px solid var(--accent); border-radius: 8px; padding: 10px; background: rgba(99,179,237,0.05);">
+        <label style="color:var(--accent); font-weight:bold;">🕒 時間戳記欄位 (必填)</label>
+        <input class="config-input" id="colTime" type="number" placeholder="1" value="1" min="1">
+        <small style="font-size:9px; color:var(--text3); margin-top:4px;">例如 A 欄填 1</small>
+      </div>
       <div class="config-field">
-        <label>葡萄糖電壓欄 (Col)</label>
+        <label>🍇 葡萄糖電壓欄</label>
         <input class="config-input" id="colGlucose" type="number" placeholder="2" value="2" min="1">
       </div>
       <div class="config-field">
-        <label>氮 (NH₄⁺-N) 電壓欄 (Col)</label>
+        <label>🌿 氮電壓欄</label>
         <input class="config-input" id="colNitrogen" type="number" placeholder="3" value="3" min="1">
       </div>
       <div class="config-field">
-        <label>磷 (PO₄³⁻-P) 電壓欄 (Col)</label>
+        <label>💎 磷電壓欄</label>
         <input class="config-input" id="colPhosphorus" type="number" placeholder="4" value="4" min="1">
       </div>
     </div>
  
-    <div class="config-hint">
-      📋 <strong>Google Sheet 串接指南：</strong><br>
-      1. 網站會傳送 <code>sheetId</code>, <code>sheet</code>, <code>colTime</code>, <code>colVoltage</code> 四個參數。<br>
-      2. Apps Script 必須回傳：<code>{ "voltage": 0.42, "timestamp": "..." }</code><br>
-      3. 確保 Apps Script 已部署為「網頁應用程式」，且存取權限設為「任何人」。
+    <div style="font-size:10px; color:var(--text3); line-height:1.6; background:var(--bg2); padding:12px; border-radius:6px; border:1px dashed var(--border);">
+      💡 <strong>設定提示：</strong><br>
+      • 欄位編號從 1 開始計算 (A=1, B=2, C=3...)。<br>
+      • 網站會將 <code>colTime</code> 與 <code>colVoltage</code> 傳送給後端。<br>
+      • 填入 Apps Script URL 後，上方標籤會切換為 <code>LIVE</code> 模式。
     </div>
   </div>
  
@@ -399,13 +400,11 @@ const ANALYTES = {
   }
 };
  
-// ══════════════════════════════════════════════════════════════
-// 狀態變數與初始化
-// ══════════════════════════════════════════════════════════════
+// 狀態變數
 let chart, isRunning = false, runInterval = null, timerCount = 0;
 let voltData = [], timeLabels = [];
 let pollCount = 0;
-const TOTAL_STEPS = 48; // 固定 48 個採樣點後自動結束並顯示結果
+const TOTAL_STEPS = 48; 
  
 function getConfig() {
   return {
@@ -447,9 +446,7 @@ function updateModeBadge() {
 document.getElementById("appsScriptUrl").addEventListener("input", updateModeBadge);
 document.getElementById("sheetId").addEventListener("input", updateModeBadge);
  
-// ══════════════════════════════════════════════════════════════
 // Chart 初始化
-// ══════════════════════════════════════════════════════════════
 const ctx = document.getElementById("liveChart").getContext("2d");
 chart = new Chart(ctx, {
   type: "line",
@@ -505,7 +502,6 @@ async function startRun() {
     document.getElementById("progFill").style.width = pct + "%";
     document.getElementById("progLabel").textContent = pct + "%";
     
-    // 每 5 秒抓一次資料 (模擬原本 240s/48pts 的節奏)
     if (timerCount % 5 === 0) {
       await fetchAndPlot(analyte);
       if (pollCount >= TOTAL_STEPS) stopRun(analyte);
@@ -600,7 +596,7 @@ function showResult(analyte) {
   document.getElementById("resultBarFill").style.background = result.color;
   document.getElementById("barLow").textContent = "0";
   document.getElementById("barMid").textContent = cfg.normalHigh + " " + cfg.unit;
-  document.getElementById("barHigh").textContent = cfg.maxRange + " " + cfg.unit;
+  document.getElementById("barHigh").textContent = cfg.maxRange + " " + uint;
  
   const confidence = 90 + Math.random() * 8;
   document.getElementById("confBarFill").style.width = confidence.toFixed(0) + "%";
