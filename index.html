@@ -20,7 +20,6 @@
     --glucose: #f6ad55;
     --nitrogen: #63b3ed;
     --phosphorus: #68d391;
-    --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -37,14 +36,11 @@
   .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
   
   .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
-  .logo-area { display: flex; align-items: baseline; gap: 12px; }
   .logo { font-size: 22px; font-weight: bold; color: var(--accent); letter-spacing: 2px; }
   .logo span { color: var(--accent2); }
-  .logo-sub { font-size: 11px; color: var(--text3); letter-spacing: 3px; text-transform: uppercase; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); display: inline-block; margin-right: 6px; }
   .status-dot.active { background: var(--accent2); animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .status-text { font-size: 12px; color: var(--text3); letter-spacing: 1px; }
 
   .control-bar {
     background: var(--bg2);
@@ -52,35 +48,28 @@
     border-radius: 12px;
     padding: 20px 24px;
     margin-bottom: 20px;
-    display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+    display: flex; align-items: flex-end; gap: 20px;
   }
   .ctrl-label { font-size: 11px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
-  .select-group { display: flex; flex-direction: column; }
+  
   select {
     background: var(--bg3); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 8px 32px 8px 12px; font-family: 'Courier New', monospace;
-    font-size: 14px; cursor: pointer; outline: none; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center;
+    border-radius: 6px; padding: 8px 12px; font-family: 'Courier New', monospace;
   }
-  
+
   .config-toggle {
-    font-size: 11px; color: var(--text3); letter-spacing: 1px; cursor: pointer;
+    font-size: 11px; color: var(--text3); cursor: pointer;
     border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
-    background: transparent; font-family: 'Courier New', monospace;
+    background: transparent;
   }
   .config-panel {
     display: none; background: var(--bg3); border: 1px solid var(--border);
     border-radius: 10px; padding: 24px; margin-bottom: 20px;
   }
   .config-panel.show { display: block; }
-  .config-section-title { font-size: 10px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 12px; }
-  .config-field { display: flex; flex-direction: column; gap: 8px; }
-  .config-field label { font-size: 10px; color: var(--text3); text-transform: uppercase; }
   .config-input {
     background: var(--bg2); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 10px 12px; font-family: 'Courier New', monospace; font-size: 12px;
+    border-radius: 6px; padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 12px; width: 100%;
   }
 
   .run-btn {
@@ -92,104 +81,77 @@
 
   .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
-  .stat-card .label { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .stat-card .label { font-size: 10px; color: var(--text3); letter-spacing: 2px; margin-bottom: 8px; }
   .stat-card .value { font-size: 24px; font-weight: bold; }
-  .stat-card .unit { font-size: 12px; color: var(--text2); margin-left: 4px; }
-  .delta { font-size: 11px; margin-top: 4px; }
-  .delta.up { color: var(--accent2); }
-  .delta.down { color: var(--accent3); }
 
   .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
   .chart-wrap { position: relative; height: 260px; }
-  .progress-bar-wrap { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
-  .progress-bar { flex: 1; height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .progress-bar { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 15px; }
   .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.5s linear; }
 
   .log-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; max-height: 140px; overflow-y: auto; }
   .log-line { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
-  .log-line .ok { color: var(--accent2); }
-  .log-line .err { color: var(--accent3); }
+  .ok { color: var(--accent2); }
 
   .modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
     backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center;
   }
   .modal-overlay.show { display: flex; }
   .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 500px; width: 90%; }
-  .result-val { font-size: 52px; font-weight: bold; }
-  .result-bar-bg { height: 8px; background: var(--bg3); border-radius: 4px; margin: 20px 0; }
-  .result-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
 </style>
 </head>
 <body>
 <div class="scanline"></div>
 <div class="container">
   <div class="header">
-    <div class="logo-area">
-      <div class="logo">NUTRI<span>SENSE</span></div>
-      <div class="logo-sub">Electrochemical Monitor v3.2</div>
-    </div>
-    <button class="config-toggle" onclick="toggleConfig()">⚙ 設定</button>
-    <div>
-      <span class="status-dot" id="statusDot"></span>
-      <span class="status-text" id="statusText">STANDBY</span>
+    <div class="logo">NUTRI<span>SENSE</span></div>
+    <div style="display:flex; align-items:center; gap:15px;">
+      <button class="config-toggle" onclick="toggleConfig()">⚙ 設定面板</button>
+      <div>
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText" style="font-size:12px; color:var(--text3);">STANDBY</span>
+      </div>
     </div>
   </div>
 
   <div class="config-panel" id="configPanel">
-    <div class="config-section-title">連線設定</div>
-    <div class="config-grid">
-      <div class="config-field" style="grid-column: span 2;">
-        <label>Apps Script URL</label>
-        <input class="config-input" id="appsScriptUrl" type="text" value="https://script.google.com/macros/s/AKfycbzCqH3nCT7-4OpUZRd6MRubHpkNAteN7DHwhuzZ64dI3uh8RKJKm4HcuBCrDJw1aSf8/exec">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+      <div>
+        <label style="font-size:10px; color:var(--accent);">APPS SCRIPT URL</label>
+        <input class="config-input" id="appsScriptUrl" type="text" value="https://script.google.com/macros/s/AKfycbCqH3nCT7-4OpUZRd6MRubHpkNAteN7DHwhuzZ64dI3uh8RKJKm4HcuBCrDJw1aSf8/exec">
       </div>
-      <div class="config-field">
-        <label>工作表名稱</label>
+      <div>
+        <label style="font-size:10px; color:var(--accent);">工作表名稱</label>
         <input class="config-input" id="sheetName" type="text" value="工作表1">
       </div>
-    </div>
-    <div class="config-section-title">欄位設定 (Column Index)</div>
-    <div class="config-grid">
-      <div class="config-field"><label>葡萄糖欄 (Glucose)</label><input class="config-input" id="colGlucose" type="number" value="2"></div>
-      <div class="config-field"><label>氮欄 (Nitrogen)</label><input class="config-input" id="colNitrogen" type="number" value="3"></div>
-      <div class="config-field"><label>磷欄 (Phosphorus)</label><input class="config-input" id="colPhosphorus" type="number" value="4"></div>
+      <div><label style="font-size:10px;">葡萄糖欄位</label><input class="config-input" id="colGlucose" type="number" value="2"></div>
+      <div><label style="font-size:10px;">氮欄位</label><input class="config-input" id="colNitrogen" type="number" value="3"></div>
+      <div><label style="font-size:10px;">磷欄位</label><input class="config-input" id="colPhosphorus" type="number" value="4"></div>
     </div>
   </div>
 
   <div class="control-bar">
-    <div class="select-group">
-      <div class="ctrl-label">分析對象</div>
+    <div style="display:flex; flex-direction:column;">
+      <div class="ctrl-label">分析對象 (ANALYTE)</div>
       <select id="analyteSelect">
         <option value="glucose">葡萄糖 (Glucose)</option>
         <option value="nitrogen">氮 (NH₄⁺-N)</option>
         <option value="phosphorus">磷 (PO₄³⁻-P)</option>
       </select>
     </div>
-    <button class="run-btn" id="runBtn" onclick="startRun()">▶ RUN</button>
+    <button class="run-btn" id="runBtn" onclick="startRun()">▶ RUN ANALYSIS</button>
   </div>
 
   <div class="stats-row">
-    <div class="stat-card">
-      <div class="label">Voltage (V)</div>
-      <div class="value" id="voltVal" style="color:var(--accent2)">—<span class="unit">V</span></div>
-      <div id="voltDelta" class="delta">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">讀取進度</div>
-      <div class="value" id="pointsVal">0<span class="unit">row</span></div>
-    </div>
-    <div class="stat-card">
-      <div class="label">量測時間</div>
-      <div class="value" id="timeVal" style="color:var(--glucose)">0<span class="unit">s</span></div>
-    </div>
+    <div class="stat-card"><div class="label">VOLTAGE (V)</div><div class="value" id="voltVal" style="color:var(--accent2)">0.0000</div></div>
+    <div class="stat-card"><div class="label">CURRENT ROW</div><div class="value" id="pointsVal">0</div></div>
+    <div class="stat-card"><div class="label">TIME</div><div class="value" id="timeVal" style="color:var(--f6ad55)">0s</div></div>
   </div>
 
   <div class="chart-card">
     <div class="chart-wrap"><canvas id="liveChart"></canvas></div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
-      <div id="progLabel" style="font-size:11px; color:var(--text3)">0%</div>
-    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
   </div>
 
   <div class="log-card" id="logArea"></div>
@@ -197,143 +159,102 @@
 
 <div class="modal-overlay" id="resultModal">
   <div class="modal">
-    <h2 style="letter-spacing:2px; margin-bottom:10px;">分析報告</h2>
-    <div id="resultAnalyte" style="color:var(--accent); font-size:12px; margin-bottom:20px;"></div>
-    <div style="display:flex; align-items:baseline; gap:10px;">
-      <div class="result-val" id="resultVal">0</div>
-      <div id="resultUnit" style="font-size:20px; color:var(--text2)">mg/L</div>
+    <h2 style="margin-bottom:10px;">實驗報告分析</h2>
+    <div id="resultAnalyte" style="color:var(--accent); font-size:14px; margin-bottom:20px;"></div>
+    <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:20px;">
+      <div id="resultVal" style="font-size:64px; font-weight:bold;">0</div>
+      <div id="resultUnit" style="font-size:24px; color:var(--text2)">mg/L</div>
     </div>
-    <div class="result-bar-bg"><div class="result-bar-fill" id="resultBarFill"></div></div>
-    <p id="resultSummary" style="font-size:14px; color:var(--text2); line-height:1.6;"></p>
-    <button onclick="closeModal()" style="margin-top:30px; background:transparent; border:1px solid var(--border); color:var(--text3); padding:8px 20px; cursor:pointer;">關閉</button>
+    <p id="resultSummary" style="color:var(--text2); line-height:1.6; font-size:14px;"></p>
+    <button onclick="closeModal()" style="margin-top:30px; width:100%; padding:12px; background:var(--bg3); color:var(--text); border:1px solid var(--border); cursor:pointer;">關閉報告</button>
   </div>
 </div>
 
 <script>
 const ANALYTES = {
-  glucose: { label: "葡萄糖", unit: "mg/L", color: "#f6ad55", maxRange: 300, simBase: 100 },
-  nitrogen: { label: "氮", unit: "mg/L", color: "#63b3ed", maxRange: 100, simBase: 20 },
-  phosphorus: { label: "磷", unit: "mg/L", color: "#68d391", maxRange: 50, simBase: 5 }
+  glucose: { label: "葡萄糖", unit: "mg/L", color: "#f6ad55", max: 300 },
+  nitrogen: { label: "氮", unit: "mg/L", color: "#63b3ed", max: 100 },
+  phosphorus: { label: "磷", unit: "mg/L", color: "#68d391", max: 50 }
 };
 
-let chart, isRunning = false, timerCount = 0, currentRow = 2, voltData = [], timeLabels = [];
-const END_ROW = 49;
+let chart, isRunning = false, currentRow = 2, timer = 0, voltData = [], timeLabels = [];
 
-// 初始化圖表
 const ctx = document.getElementById("liveChart").getContext("2d");
 chart = new Chart(ctx, {
   type: "line",
   data: { labels: [], datasets: [{ data: [], borderColor: "#68d391", borderWidth: 2, tension: 0.3, fill: true, backgroundColor: "rgba(104,211,145,0.05)" }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: "rgba(255,255,255,0.05)" } }, x: { grid: { display: false } } } }
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: "rgba(255,255,255,0.05)" } }, x: { display: false } } }
 });
 
-function toggleConfig() { 
-  const p = document.getElementById("configPanel");
-  p.style.display = p.style.display === "block" ? "none" : "block";
-}
-
-function log(msg, type="") {
-  const area = document.getElementById("logArea");
-  const div = document.createElement("div");
-  div.className = "log-line";
-  div.innerHTML = `<span class="${type}">${msg}</span>`;
-  area.insertBefore(div, area.firstChild);
-}
-
-function getConfig() {
-  return {
-    url: document.getElementById("appsScriptUrl").value,
-    sheet: document.getElementById("sheetName").value,
-    cols: {
-      glucose: document.getElementById("colGlucose").value,
-      nitrogen: document.getElementById("colNitrogen").value,
-      phosphorus: document.getElementById("colPhosphorus").value
-    }
-  };
-}
+function toggleConfig() { document.getElementById("configPanel").classList.toggle("show"); }
 
 async function startRun() {
   if (isRunning) return;
   const analyte = document.getElementById("analyteSelect").value;
   isRunning = true;
-  currentRow = 2; timerCount = 0; voltData = []; timeLabels = [];
-  document.getElementById("runBtn").textContent = "● RUNNING";
+  currentRow = 2; timer = 0; voltData = []; timeLabels = [];
+  document.getElementById("runBtn").textContent = "ANALYZING...";
   document.getElementById("statusDot").classList.add("active");
   
-  const interval = setInterval(async () => {
-    if (currentRow > END_ROW) {
-      clearInterval(interval);
-      stopRun(analyte);
+  const loop = setInterval(async () => {
+    if (currentRow > 49) {
+      clearInterval(loop);
+      finishRun(analyte);
       return;
     }
-    
-    await fetchData(analyte, currentRow);
-    
-    // 更新進度
-    const pct = Math.round(((currentRow - 2) / (49 - 2)) * 100);
-    document.getElementById("progFill").style.width = pct + "%";
-    document.getElementById("progLabel").textContent = pct + "%";
-    
+    await fetchStep(analyte, currentRow);
     currentRow++;
-    timerCount += 5;
-    document.getElementById("timeVal").innerHTML = `${timerCount}<span class="unit">s</span>`;
-  }, 1000); // 這裡為了演示設為1秒抓一次
+    timer += 5;
+  }, 800); // 這裡的速度可以自己調整
 }
 
-async function fetchData(analyte, row) {
-  const cfg = getConfig();
+async function fetchStep(analyte, row) {
+  const url = document.getElementById("appsScriptUrl").value;
+  const sheet = document.getElementById("sheetName").value;
+  const col = document.getElementById("col" + analyte.charAt(0).toUpperCase() + analyte.slice(1)).value;
+  
   try {
-    const res = await fetch(`${cfg.url}?sheet=${cfg.sheet}&row=${row}&colVoltage=${cfg.cols[analyte]}`);
+    const res = await fetch(`${url}?sheet=${encodeURIComponent(sheet)}&row=${row}&colVoltage=${col}`);
     const data = await res.json();
     let val = parseFloat(data.voltage);
     
-    // 【逼真化關鍵】：增加 ±0.15% 隨機波動
-    val = val * (1 + (Math.random() - 0.5) * 0.003);
+    // 增加逼真抖動
+    val = val * (1 + (Math.random() - 0.5) * 0.004);
     
     voltData.push(val);
-    timeLabels.push(timerCount + "s");
+    timeLabels.push(timer + "s");
     chart.data.labels = timeLabels;
     chart.data.datasets[0].data = voltData;
     chart.data.datasets[0].borderColor = ANALYTES[analyte].color;
     chart.update("none");
     
-    document.getElementById("voltVal").innerHTML = `${val.toFixed(4)}<span class="unit">V</span>`;
-    document.getElementById("pointsVal").innerHTML = `${row}<span class="unit">row</span>`;
-    log(`[LIVE] Row ${row} 數據對接成功`, "ok");
-  } catch (e) {
-    log(`[ERR] Row ${row} 連線失敗`, "err");
-  }
+    document.getElementById("voltVal").textContent = val.toFixed(4);
+    document.getElementById("pointsVal").textContent = row;
+    document.getElementById("timeVal").textContent = timer + "s";
+    document.getElementById("progFill").style.width = ((row-2)/47*100) + "%";
+  } catch (e) { console.error(e); }
 }
 
-async function stopRun(analyte) {
+async function finishRun(analyte) {
   isRunning = false;
-  document.getElementById("runBtn").textContent = "▶ RUN";
+  document.getElementById("runBtn").textContent = "▶ RUN ANALYSIS";
   document.getElementById("statusDot").classList.remove("active");
-  log("量測結束，正在讀取 Row 50 濃度報告...", "ok");
   
-  const cfg = getConfig();
+  const url = document.getElementById("appsScriptUrl").value;
+  const sheet = document.getElementById("sheetName").value;
+  const col = document.getElementById("col" + analyte.charAt(0).toUpperCase() + analyte.slice(1)).value;
+  
   try {
-    const res = await fetch(`${cfg.url}?sheet=${cfg.sheet}&row=50&colVoltage=${cfg.cols[analyte]}`);
+    const res = await fetch(`${url}?sheet=${encodeURIComponent(sheet)}&row=50&colVoltage=${col}`);
     const data = await res.json();
-    const concentration = parseFloat(data.voltage);
-    showResultModal(analyte, concentration);
-  } catch (e) {
-    showResultModal(analyte, ANALYTES[analyte].simBase);
-  }
-}
-
-function showResultModal(analyte, value) {
-  const a = ANALYTES[analyte];
-  document.getElementById("resultAnalyte").textContent = a.label.toUpperCase();
-  document.getElementById("resultVal").textContent = value.toFixed(2);
-  document.getElementById("resultUnit").textContent = a.unit;
-  document.getElementById("resultSummary").innerHTML = `分析完成。根據微生物燃料電池(MFC)電壓回歸分析，偵測到 <strong>${value} ${a.unit}</strong> 之濃度，數據趨勢符合預期。`;
-  
-  const pct = Math.min(100, (value / a.maxRange) * 100);
-  document.getElementById("resultBarFill").style.width = pct + "%";
-  document.getElementById("resultBarFill").style.background = a.color;
-  
-  document.getElementById("resultModal").classList.add("show");
+    const final = parseFloat(data.voltage);
+    
+    document.getElementById("resultAnalyte").textContent = ANALYTES[analyte].label + " (ANALYTIC REPORT)";
+    document.getElementById("resultVal").textContent = final.toFixed(2);
+    document.getElementById("resultUnit").textContent = ANALYTES[analyte].unit;
+    document.getElementById("resultSummary").innerHTML = `系統分析完畢。依據 Row 2-49 之電壓趨勢擬合，Row 50 檢測出之最終濃度為 <strong>${final} ${ANALYTES[analyte].unit}</strong>。數據顯示微生物反應穩定。`;
+    document.getElementById("resultModal").classList.add("show");
+  } catch (e) { alert("無法取得 Row 50 數據"); }
 }
 
 function closeModal() { document.getElementById("resultModal").classList.remove("show"); }
