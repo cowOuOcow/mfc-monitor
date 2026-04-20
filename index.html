@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.4</title>
+    <title>NutriSense Monitor v3.5</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -184,7 +184,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.4</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.5</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -231,6 +231,7 @@
             <option value="phosphorus">磷 (Phosphorus)</option>
         </select>
         <button class="btn primary" id="runBtn" onclick="startRun()">▶ 開始量測</button>
+        <button class="btn" id="lastReportBtn" onclick="showLastReport()" style="display:none;">📋 查看上次報告</button>
         <span id="connectionBadge" style="margin-left:auto; font-size:12px; color:var(--text3);"></span>
     </div>
 
@@ -342,6 +343,7 @@ let voltageData = [];
 let timeLabels = [];
 let readSuccessCount = 0;
 let readTotalCount = 0;
+let lastReportData = null;  // 儲存上一次報告資料
 
 // 初始化圖表
 const ctx = document.getElementById('liveChart').getContext('2d');
@@ -575,6 +577,10 @@ async function fetchFinalResult() {
 function showResultModal(analyte, value) {
     const a = ANALYTES[analyte];
     
+    // 儲存報告資料以便之後重新顯示
+    lastReportData = { analyte, value };
+    document.getElementById('lastReportBtn').style.display = 'inline-block';
+    
     // 計算電壓統計值
     const voltages = voltageData.filter(v => !isNaN(v));
     const avgVoltage = voltages.length > 0 ? voltages.reduce((a,b) => a+b, 0) / voltages.length : 0;
@@ -627,6 +633,16 @@ function showResultModal(analyte, value) {
 
 function closeModal() {
     document.getElementById('resultModal').classList.remove('show');
+}
+
+// 重新顯示上次報告
+function showLastReport() {
+    if (lastReportData) {
+        const { analyte, value } = lastReportData;
+        showResultModal(analyte, value);
+    } else {
+        log('尚無報告資料', 'error');
+    }
 }
 
 // 事件綁定
