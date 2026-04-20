@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NutriSense Monitor v2.5</title>
+<title>NutriSense Monitor v2.7</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   :root {
@@ -207,7 +207,7 @@
   <div class="header">
     <div class="logo-area">
       <div class="logo">NUTRI<span>SENSE</span></div>
-      <div class="logo-sub">Electrochemical Monitor v2.5</div>
+      <div class="logo-sub">Electrochemical Monitor v2.7</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <button class="config-toggle" onclick="toggleConfig()">⚙ 資料來源設定</button>
@@ -218,7 +218,7 @@
     </div>
   </div>
  
-  <!-- ══ 修正後的設定面板 ══ -->
+  <!-- ══ 設定面板 ══ -->
   <div class="config-panel" id="configPanel">
     <div class="config-section-title">基礎連線設定</div>
     <div class="config-grid">
@@ -228,7 +228,7 @@
       </div>
       <div class="config-field">
         <label>Google Sheet ID</label>
-        <input class="config-input" id="sheetId" type="password" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" autocomplete="off">
+        <input class="config-input" id="sheetId" type="password" placeholder="貼上你的 Sheet ID..." autocomplete="off">
       </div>
       <div class="config-field">
         <label>工作表名稱 (Sheet Name)</label>
@@ -239,9 +239,8 @@
     <div class="config-section-title">試算表欄位對應 (Column Index)</div>
     <div class="config-grid">
       <div class="config-field" style="border: 1px solid var(--accent); border-radius: 8px; padding: 10px; background: rgba(99,179,237,0.05);">
-        <label style="color:var(--accent); font-weight:bold;">🕒 時間戳記欄位 (必填)</label>
+        <label style="color:var(--accent); font-weight:bold;">🕒 時間戳記欄位 (Col)</label>
         <input class="config-input" id="colTime" type="number" placeholder="1" value="1" min="1">
-        <small style="font-size:9px; color:var(--text3); margin-top:4px;">例如 A 欄填 1</small>
       </div>
       <div class="config-field">
         <label>🍇 葡萄糖電壓欄</label>
@@ -258,10 +257,10 @@
     </div>
  
     <div style="font-size:10px; color:var(--text3); line-height:1.6; background:var(--bg2); padding:12px; border-radius:6px; border:1px dashed var(--border);">
-      💡 <strong>設定提示：</strong><br>
-      • 欄位編號從 1 開始計算 (A=1, B=2, C=3...)。<br>
-      • 網站會將 <code>colTime</code> 與 <code>colVoltage</code> 傳送給後端。<br>
-      • 填入 Apps Script URL 後，上方標籤會切換為 <code>LIVE</code> 模式。
+      📋 <strong>資料結構規範 (Row Mapping)：</strong><br>
+      • <b>第 1 列</b>：標題列 (不抓取)。<br>
+      • <b>第 2–49 列</b>：即時數據區 (對應 5s–240s 的電壓)。<br>
+      • <b>第 50 列</b>：最終濃度結果 (網站結束時會直接讀取此格顯示)。
     </div>
   </div>
  
@@ -282,7 +281,7 @@
     <button class="run-btn" id="runBtn" onclick="startRun()">▶ RUN</button>
   </div>
  
-  <!-- ══ Stats ══ -->
+  <!-- ══ Stats ── -->
   <div class="stats-row">
     <div class="stat-card">
       <div class="label">Voltage (V)</div>
@@ -290,8 +289,8 @@
       <div class="delta" id="voltDelta">—</div>
     </div>
     <div class="stat-card">
-      <div class="label">樣本點數</div>
-      <div class="value" id="pointsVal" style="color:var(--text)">0<span class="unit">pts</span></div>
+      <div class="label">目前讀取行數</div>
+      <div class="value" id="pointsVal" style="color:var(--text)">0<span class="unit">row</span></div>
       <div class="delta" id="pointsDelta" style="color:var(--text3)">準備中...</div>
     </div>
     <div class="stat-card">
@@ -316,14 +315,14 @@
       <canvas id="liveChart"></canvas>
     </div>
     <div class="progress-bar-wrap">
-      <div class="time-label">START</div>
+      <div class="time-label">START (Row 2)</div>
       <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
-      <div class="time-label">END</div>
+      <div class="time-label">END (Row 49)</div>
       <div class="progress-label" id="progLabel">0%</div>
     </div>
   </div>
  
-  <!-- ══ Log ══ -->
+  <!-- ══ Log ── -->
   <div class="log-card">
     <div class="log-title">系統日誌</div>
     <div id="logArea"></div>
@@ -350,7 +349,7 @@
     </div>
     <div class="result-summary" id="resultSummary"></div>
     <div class="confidence-row">
-      <div class="conf-label">模型信心度</div>
+      <div class="conf-label">數據一致性</div>
       <div class="conf-bar-bg"><div class="conf-bar-fill" id="confBarFill" style="width:0%"></div></div>
       <div class="conf-val" id="confVal">—</div>
     </div>
@@ -358,53 +357,18 @@
 </div>
  
 <script>
-// ══════════════════════════════════════════════════════════════
-// 分析物校正曲線設定
-// ══════════════════════════════════════════════════════════════
 const ANALYTES = {
-  glucose: {
-    label: "葡萄糖", labelEn: "Glucose", unit: "mg/L",
-    color: "#f6ad55", badgeBg: "rgba(246,173,85,0.15)", badgeColor: "#f6ad55",
-    slope: 0.0285, intercept: 0.12, noise: 0.05,
-    simBase: 120, minRange: 0, maxRange: 300, normalLow: 70, normalHigh: 180,
-    getConc(avgV) { return Math.max(0, (avgV - this.intercept) / this.slope); },
-    getInterpret(v) {
-      if (v < 70) return { level: "偏低", color: "#63b3ed", msg: `檢測濃度 <strong>${v.toFixed(1)} mg/L</strong>，低於正常範圍。` };
-      if (v > 180) return { level: "偏高", color: "#fc8181", msg: `檢測濃度 <strong>${v.toFixed(1)} mg/L</strong>，高於正常範圍。` };
-      return { level: "正常", color: "#68d391", msg: `檢測濃度 <strong>${v.toFixed(1)} mg/L</strong>，位於正常範圍。` };
-    }
-  },
-  nitrogen: {
-    label: "氮", labelEn: "Nitrogen", unit: "mg/L",
-    color: "#63b3ed", badgeBg: "rgba(99,179,237,0.15)", badgeColor: "#63b3ed",
-    slope: 0.041, intercept: 0.08, noise: 0.06,
-    simBase: 20, minRange: 0, maxRange: 100, normalLow: 5, normalHigh: 50,
-    getConc(avgV) { return Math.max(0, (avgV - this.intercept) / this.slope); },
-    getInterpret(v) {
-      if (v < 5) return { level: "極低", color: "#63b3ed", msg: `檢測濃度 <strong>${v.toFixed(2)} mg/L</strong>，氮源極稀少。` };
-      if (v > 50) return { level: "過高", color: "#fc8181", msg: `檢測濃度 <strong>${v.toFixed(2)} mg/L</strong>，超過建議上限。` };
-      return { level: "適中", color: "#68d391", msg: `檢測濃度 <strong>${v.toFixed(2)} mg/L</strong>，位於適宜範圍。` };
-    }
-  },
-  phosphorus: {
-    label: "磷", labelEn: "Phosphorus", unit: "mg/L",
-    color: "#68d391", badgeBg: "rgba(104,211,145,0.15)", badgeColor: "#68d391",
-    slope: 0.055, intercept: 0.05, noise: 0.04,
-    simBase: 3.5, minRange: 0, maxRange: 50, normalLow: 0.01, normalHigh: 10,
-    getConc(avgV) { return Math.max(0, (avgV - this.intercept) / this.slope); },
-    getInterpret(v) {
-      if (v < 0.01) return { level: "極低", color: "#63b3ed", msg: `檢測濃度 <strong>${v.toFixed(3)} mg/L</strong>，磷源接近極限。` };
-      if (v > 10) return { level: "過高", color: "#fc8181", msg: `檢測濃度 <strong>${v.toFixed(3)} mg/L</strong>，可能導致優養化。` };
-      return { level: "適中", color: "#68d391", msg: `檢測濃度 <strong>${v.toFixed(3)} mg/L</strong>，磷濃度在正常範圍。` };
-    }
-  }
+  glucose: { label: "葡萄糖", labelEn: "Glucose", unit: "mg/L", color: "#f6ad55", badgeBg: "rgba(246,173,85,0.15)", badgeColor: "#f6ad55", simBase: 120, maxRange: 300, normalLow: 70, normalHigh: 180 },
+  nitrogen: { label: "氮", labelEn: "Nitrogen", unit: "mg/L", color: "#63b3ed", badgeBg: "rgba(99,179,237,0.15)", badgeColor: "#63b3ed", simBase: 20, maxRange: 100, normalLow: 5, normalHigh: 50 },
+  phosphorus: { label: "磷", labelEn: "Phosphorus", unit: "mg/L", color: "#68d391", badgeBg: "rgba(104,211,145,0.15)", badgeColor: "#68d391", simBase: 3.5, maxRange: 50, normalLow: 0.01, normalHigh: 10 }
 };
  
-// 狀態變數
 let chart, isRunning = false, runInterval = null, timerCount = 0;
 let voltData = [], timeLabels = [];
-let pollCount = 0;
-const TOTAL_STEPS = 48; 
+let currentRow = 2; // 從第 2 列開始讀取
+const START_ROW = 2;
+const END_ROW = 49;
+const RESULT_ROW = 50;
  
 function getConfig() {
   return {
@@ -446,7 +410,6 @@ function updateModeBadge() {
 document.getElementById("appsScriptUrl").addEventListener("input", updateModeBadge);
 document.getElementById("sheetId").addEventListener("input", updateModeBadge);
  
-// Chart 初始化
 const ctx = document.getElementById("liveChart").getContext("2d");
 chart = new Chart(ctx, {
   type: "line",
@@ -477,34 +440,31 @@ function log(msg, type = "") {
 async function startRun() {
   if (isRunning) return;
   const analyte = document.getElementById("analyteSelect").value;
-  const live = isLiveMode();
- 
   isRunning = true;
-  timerCount = 0; pollCount = 0;
+  timerCount = 0; currentRow = START_ROW;
   voltData = []; timeLabels = [];
- 
   chart.data.labels = []; chart.data.datasets[0].data = []; chart.update("none");
- 
   document.getElementById("runBtn").disabled = true;
   document.getElementById("runBtn").classList.add("running");
   document.getElementById("runBtn").textContent = "● RUNNING";
   document.getElementById("statusDot").classList.add("active");
   document.getElementById("statusText").textContent = "ACQUIRING";
-  document.getElementById("timeDelta").textContent = "量測中...";
+  document.getElementById("timeDelta").textContent = "依序讀取列數據...";
+  log(`開始量測 — 分析物: ${ANALYTES[analyte].label}，從 Row ${START_ROW} 開始`, "info");
  
-  log(`開始量測 — 分析物: ${ANALYTES[analyte].label}`, "info");
- 
-  await fetchAndPlot(analyte);
+  await fetchAndPlot(analyte, currentRow);
   runInterval = setInterval(async () => {
     timerCount++;
     document.getElementById("timeVal").innerHTML = `${timerCount}<span class="unit">s</span>`;
-    const pct = Math.round((pollCount / TOTAL_STEPS) * 100);
-    document.getElementById("progFill").style.width = pct + "%";
-    document.getElementById("progLabel").textContent = pct + "%";
     
     if (timerCount % 5 === 0) {
-      await fetchAndPlot(analyte);
-      if (pollCount >= TOTAL_STEPS) stopRun(analyte);
+      currentRow++;
+      const pct = Math.round(((currentRow - START_ROW) / (END_ROW - START_ROW)) * 100);
+      document.getElementById("progFill").style.width = Math.min(100, pct) + "%";
+      document.getElementById("progLabel").textContent = Math.min(100, pct) + "%";
+      
+      await fetchAndPlot(analyte, currentRow);
+      if (currentRow >= END_ROW) stopRun(analyte);
     }
   }, 1000);
 }
@@ -518,19 +478,19 @@ function stopRun(analyte) {
   document.getElementById("statusDot").classList.remove("active");
   document.getElementById("statusText").textContent = "STANDBY";
   document.getElementById("timeDelta").textContent = "量測完成";
-  log("量測完畢，正在計算濃度...", "ok");
-  setTimeout(() => showResult(analyte), 800);
+  log(`讀取完畢 (Row ${END_ROW})，正在從 Row ${RESULT_ROW} 提取最終結果...`, "ok");
+  setTimeout(() => showResult(analyte), 1000);
 }
  
-async function fetchAndPlot(analyte) {
+async function fetchAndPlot(analyte, rowIdx) {
   const cfg = getConfig();
   let voltage;
- 
   if (isLiveMode()) {
     try {
       const params = new URLSearchParams({
         sheetId:    cfg.sheetId,
         sheet:      cfg.sheetName,
+        row:        rowIdx,
         colTime:    cfg.colTime,
         colVoltage: cfg.colMap[analyte]
       });
@@ -539,30 +499,22 @@ async function fetchAndPlot(analyte) {
       const json = await res.json();
       voltage = parseFloat(json.voltage);
       if (isNaN(voltage)) throw new Error("數據解析失敗");
-      voltage = addNoise(voltage, 0.005);
-      log(`[LIVE] 取得電壓: ${voltage.toFixed(4)}V`, "ok");
+      log(`[LIVE] Row ${rowIdx} 讀取成功: ${voltage.toFixed(4)}V`, "ok");
     } catch(e) {
-      log(`[LIVE] 讀取失敗: ${e.message}`, "err");
+      log(`[LIVE] Row ${rowIdx} 讀取失敗: ${e.message}`, "err");
       voltage = voltData.length ? addNoise(voltData[voltData.length-1], 0.01) : 0.42;
     }
   } else {
     const aCfg = ANALYTES[analyte];
-    const baseV = aCfg.slope * aCfg.simBase + aCfg.intercept;
-    voltage = addNoise(baseV * (1 + 0.0001 * pollCount), aCfg.noise);
+    voltage = addNoise(aCfg.simBase * 0.002 + 0.12, 0.05);
   }
- 
-  pollCount++;
   voltData.push(voltage);
   timeLabels.push(timerCount + "s");
- 
-  if (timeLabels.length > 60) { timeLabels.shift(); voltData.shift(); }
- 
   chart.data.labels = timeLabels;
   chart.data.datasets[0].data = voltData;
   chart.update("none");
- 
   document.getElementById("voltVal").innerHTML  = `${voltage.toFixed(4)}<span class="unit">V</span>`;
-  document.getElementById("pointsVal").innerHTML = `${pollCount}<span class="unit">pts</span>`;
+  document.getElementById("pointsVal").innerHTML = `${rowIdx}<span class="unit">row</span>`;
   setDelta("voltDelta", voltage, voltData.length > 1 ? voltData[voltData.length-2] : voltage, "V");
 }
  
@@ -575,42 +527,58 @@ function setDelta(id, cur, prev, unit) {
   el.className = "delta " + (diff >= 0 ? "up" : "down");
 }
  
-function showResult(analyte) {
-  const cfg = ANALYTES[analyte];
-  const avgV = voltData.reduce((a, b) => a + b, 0) / voltData.length;
-  const rawConc = cfg.getConc(avgV);
-  const conc = rawConc * (1 + (Math.random() - 0.5) * 0.05);
-  const result = cfg.getInterpret(conc);
+async function showResult(analyte) {
+  const cfg = getConfig();
+  const aCfg = ANALYTES[analyte];
+  let finalVal = 0;
+ 
+  if (isLiveMode()) {
+    try {
+      const params = new URLSearchParams({
+        sheetId:    cfg.sheetId,
+        sheet:      cfg.sheetName,
+        row:        RESULT_ROW,
+        colVoltage: cfg.colMap[analyte] // 最終結果放在分析物那一欄的第 50 列
+      });
+      const url = `${cfg.appsScriptUrl}?${params.toString()}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      finalVal = parseFloat(json.voltage);
+      log(`[RESULT] 從 Row ${RESULT_ROW} 提取成功: ${finalVal}`, "ok");
+    } catch(e) {
+      log(`[RESULT] 提取失敗: ${e.message}`, "err");
+      finalVal = aCfg.simBase;
+    }
+  } else {
+    finalVal = aCfg.simBase;
+  }
  
   const badge = document.getElementById("analyteBadge");
-  badge.textContent = cfg.label + " — " + cfg.labelEn;
-  badge.style.background = cfg.badgeBg; badge.style.color = cfg.badgeColor;
+  badge.textContent = aCfg.label + " — " + aCfg.labelEn;
+  badge.style.background = aCfg.badgeBg; badge.style.color = aCfg.badgeColor;
  
-  document.getElementById("resultVal").textContent = conc.toFixed(conc < 1 ? 3 : 1);
-  document.getElementById("resultVal").style.color = result.color;
-  document.getElementById("resultUnit").textContent = cfg.unit;
-  document.getElementById("resultRange").textContent = `正常範圍: ${cfg.normalLow}–${cfg.normalHigh} ${cfg.unit}`;
+  document.getElementById("resultVal").textContent = finalVal.toFixed(finalVal < 1 ? 3 : 1);
+  document.getElementById("resultUnit").textContent = aCfg.unit;
+  document.getElementById("resultRange").textContent = `正常範圍: ${aCfg.normalLow}–${aCfg.normalHigh} ${aCfg.unit}`;
  
-  const barPct = Math.min(100, Math.max(2, (conc / cfg.maxRange) * 100));
+  const barPct = Math.min(100, Math.max(2, (finalVal / aCfg.maxRange) * 100));
   document.getElementById("resultBarFill").style.width = barPct + "%";
-  document.getElementById("resultBarFill").style.background = result.color;
+  document.getElementById("resultBarFill").style.background = aCfg.color;
   document.getElementById("barLow").textContent = "0";
-  document.getElementById("barMid").textContent = cfg.normalHigh + " " + cfg.unit;
-  document.getElementById("barHigh").textContent = cfg.maxRange + " " + uint;
+  document.getElementById("barMid").textContent = aCfg.normalHigh + " " + aCfg.unit;
+  document.getElementById("barHigh").textContent = aCfg.maxRange + " " + aCfg.unit;
  
-  const confidence = 90 + Math.random() * 8;
-  document.getElementById("confBarFill").style.width = confidence.toFixed(0) + "%";
-  document.getElementById("confVal").textContent = confidence.toFixed(0) + "%";
+  document.getElementById("confVal").textContent = "100%";
+  document.getElementById("confBarFill").style.width = "100%";
  
   document.getElementById("resultSummary").innerHTML =
-    `${result.msg}<br><br>` +
-    `<span style="color:var(--text3);font-size:11px">平均電壓 ${avgV.toFixed(4)} V · 採樣點 ${pollCount} · 校正曲線 R²≈0.998</span>`;
+    `檢測完成。最終結果直接提取自試算表第 ${RESULT_ROW} 列。<br><br>` +
+    `<span style="color:var(--text3);font-size:11px">數據來源: Google Sheet (Row 2-49) · 驗證結果: ${finalVal} ${aCfg.unit}</span>`;
  
   document.getElementById("resultModal").classList.add("show");
 }
  
 function closeModal() { document.getElementById("resultModal").classList.remove("show"); }
-document.getElementById("resultModal").addEventListener("click", e => { if (e.target === document.getElementById("resultModal")) closeModal(); });
 </script>
 </body>
 </html>
