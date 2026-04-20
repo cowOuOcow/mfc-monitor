@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.2</title>
+    <title>NutriSense Monitor v3.3</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -143,14 +143,14 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.2</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.3</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
         </div>
     </div>
 
-    <!-- 設定面板 (簡化版) -->
+    <!-- 設定面板 -->
     <div class="config-section">
         <div class="config-title">⚙ 連線設定</div>
         <div class="config-row">
@@ -330,7 +330,7 @@ function updateAnalyteLabel() {
     document.getElementById('analyteLabel').style.color = ANALYTES[analyte].color;
 }
 
-// 測試連線
+// 測試連線（已修正判斷條件）
 async function testConnection() {
     const cfg = getConfig();
     if (!cfg.url) {
@@ -346,7 +346,8 @@ async function testConnection() {
         const text = await res.text();
         let json;
         try { json = JSON.parse(text); } catch { json = null; }
-        if (json && json.success) {
+        // 修正判斷：檢查 value 是否存在且為數字
+        if (json && json.value !== undefined && !isNaN(json.value)) {
             log(`✅ 連線成功！Row 2 數值 = ${json.value}`, 'success');
             document.getElementById('connectionBadge').innerHTML = '🟢 已連接';
         } else {
@@ -358,7 +359,7 @@ async function testConnection() {
     }
 }
 
-// 讀取單一列電壓
+// 讀取單一列電壓（已修正判斷條件）
 async function fetchVoltage(row) {
     const cfg = getConfig();
     const col = getCurrentAnalyteCol();
@@ -368,15 +369,15 @@ async function fetchVoltage(row) {
         const res = await fetch(url);
         const text = await res.text();
         const json = JSON.parse(text);
-        if (json.success && json.value !== null && !isNaN(json.value)) {
+        // 修正判斷：只要有 value 且為數字就成功
+        if (json && json.value !== undefined && !isNaN(json.value)) {
             // 加入微小雜訊讓圖表更自然
             return json.value * (1 + (Math.random() - 0.5) * 0.004);
         } else {
-            throw new Error(json.error || '無效數值');
+            throw new Error('無效數值');
         }
     } catch(e) {
-        log(`讀取 Row ${row} 失敗: ${e.message}`, 'error');
-        // 模擬值
+        log(`讀取 Row ${row} 失敗，使用模擬值`, 'error');
         return voltageData.length > 0 ? voltageData[voltageData.length-1] * (1 + (Math.random()-0.5)*0.01) : 0.42;
     }
 }
@@ -469,6 +470,7 @@ function updateStats(volt, row) {
     }
 }
 
+// 讀取最終濃度（已修正判斷條件）
 async function fetchFinalResult() {
     const cfg = getConfig();
     const analyte = document.getElementById('analyteSelect').value;
@@ -478,7 +480,8 @@ async function fetchFinalResult() {
     try {
         const res = await fetch(url);
         const json = await res.json();
-        let value = (json.success && json.value !== null) ? json.value : ANALYTES[analyte].simBase;
+        // 修正判斷：只要有 value 且為數字就成功
+        let value = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
         showResultModal(analyte, value);
     } catch(e) {
         log('讀取最終濃度失敗，使用模擬值', 'error');
@@ -504,10 +507,6 @@ document.getElementById('analyteSelect').addEventListener('change', updateAnalyt
 window.onload = () => {
     loadConfig();
     updateAnalyteLabel();
-    // 如果 URL 是空的才提醒，現在已預填你的網址，所以不會跳警告
-    if (!document.getElementById('appsScriptUrl').value) {
-        log('⚠️ 請貼上你的 Apps Script 部署網址，然後點「儲存設定」', 'error');
-    }
 };
 </script>
 </body>
