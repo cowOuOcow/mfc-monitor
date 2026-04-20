@@ -480,12 +480,16 @@ async function fetchFinalResult() {
     try {
         const res = await fetch(url);
         const json = await res.json();
-        // 修正判斷：只要有 value 且為數字就成功
-        let value = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
+        // 讀取原始濃度值
+        let rawValue = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
+        // 加入 ±0.2% 波動 (1 ± 0.002)
+        let value = rawValue * (1 + (Math.random() - 0.5) * 0.004);
         showResultModal(analyte, value);
     } catch(e) {
         log('讀取最終濃度失敗，使用模擬值', 'error');
-        showResultModal(analyte, ANALYTES[analyte].simBase);
+        // 失敗時的模擬值也加一點波動
+        let simValue = ANALYTES[analyte].simBase * (1 + (Math.random() - 0.5) * 0.004);
+        showResultModal(analyte, simValue);
     }
 }
 
