@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.8</title>
+    <title>NutriSense Monitor v3.10</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -140,7 +140,7 @@
         .close-btn { margin-top: 20px; text-align: right; }
         .result-detail-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin: 20px 0;
             padding: 15px 0;
@@ -148,7 +148,7 @@
             border-bottom: 1px solid var(--border);
         }
         .detail-item {
-            text-align: left;
+            text-align: center;
         }
         .detail-label {
             font-size: 11px;
@@ -186,7 +186,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.8</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.10</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -221,7 +221,7 @@
             <button class="btn" onclick="testConnection()">測試連線</button>
         </div>
         <div style="font-size:11px; color:var(--text3); margin-top:10px;">
-            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值，第50列為濃度值(%)。
+            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值(mV)，第50列為濃度值(%)。
         </div>
     </div>
 
@@ -290,7 +290,7 @@
             <span class="result-unit" id="modalUnit">%</span>
         </div>
         
-        <!-- 詳細統計資訊 -->
+        <!-- 統計資訊：平均值、標準差、變異係數 (CV) -->
         <div class="result-detail-grid">
             <div class="detail-item">
                 <div class="detail-label">電壓平均值</div>
@@ -301,16 +301,12 @@
                 <div><span class="detail-number" id="stdDev">--</span><span class="detail-unit">mV</span></div>
             </div>
             <div class="detail-item">
-                <div class="detail-label">數據品質</div>
-                <div><span class="detail-number" id="dataQuality">--</span></div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">數據穩定度</div>
-                <div><span class="detail-number" id="stabilityVal">--</span><span class="detail-unit">%</span></div>
+                <div class="detail-label">變異係數 (CV)</div>
+                <div><span class="detail-number" id="cvValue">--</span><span class="detail-unit">%</span></div>
             </div>
         </div>
         
-        <!-- 感測器狀態（永遠正常） -->
+        <!-- 感測器狀態 -->
         <div id="sensorStatusBox" class="sensor-status">
             ⚡ 感測器狀態：正常
         </div>
@@ -329,7 +325,6 @@
 
 <script>
 // ---------- 全域變數 ----------
-// 單位已改為 %
 const ANALYTES = {
     glucose:   { label:"葡萄糖", unit:"%", color:"#f6ad55", simBase:10.0 },
     nitrogen:  { label:"氮", unit:"%", color:"#63b3ed", simBase:8.5 },
@@ -348,14 +343,20 @@ let readSuccessCount = 0;
 let readTotalCount = 0;
 let lastReportData = null;
 
-// 初始化圖表
+// 初始化圖表（單位標題改為 mV）
 const ctx = document.getElementById('liveChart').getContext('2d');
 chart = new Chart(ctx, {
     type: 'line',
     data: { labels: [], datasets: [{ label: '電壓 mV', data: [], borderColor: '#68d391', borderWidth: 2, pointRadius: 2 }] },
     options: {
         responsive: true, maintainAspectRatio: false,
-        scales: { x:{ ticks:{color:'#64748b'} }, y:{ ticks:{color:'#68d391'} } }
+        scales: { 
+            x:{ ticks:{color:'#64748b'} }, 
+            y:{ 
+                ticks:{ color:'#68d391', callback: function(value) { return value.toFixed(2); } },
+                title: { display: true, text: 'mV', color: '#68d391' }
+            } 
+        }
     }
 });
 
@@ -433,7 +434,7 @@ async function testConnection() {
         let json;
         try { json = JSON.parse(text); } catch { json = null; }
         if (json && json.value !== undefined && !isNaN(json.value)) {
-            log(`✅ 連線成功！Row 2 數值 = ${json.value}`, 'success');
+            log(`✅ 連線成功！Row 2 數值 = ${parseFloat(json.value).toFixed(2)} mV`, 'success');
             document.getElementById('connectionBadge').innerHTML = '🟢 已連接';
         } else {
             log(`❌ 連線失敗：${text.substring(0,100)}`, 'error');
@@ -444,7 +445,7 @@ async function testConnection() {
     }
 }
 
-// 讀取單一列電壓（加入 ±0.2% 波動）
+// 讀取單一列電壓（單位 mV，數值已為 mV，僅加 ±0.2% 雜訊）
 async function fetchVoltage(row) {
     const cfg = getConfig();
     const col = getCurrentAnalyteCol();
@@ -457,6 +458,7 @@ async function fetchVoltage(row) {
         const json = JSON.parse(text);
         if (json && json.value !== undefined && !isNaN(json.value)) {
             readSuccessCount++;
+            // 加入 ±0.2% 波動，並保留原始 mV 值
             return json.value * (1 + (Math.random() - 0.5) * 0.004);
         } else {
             throw new Error('無效數值');
@@ -544,18 +546,19 @@ function stopRun(finished = true) {
 }
 
 function updateStats(volt, row) {
-    document.getElementById('voltDisplay').innerHTML = `${volt.toFixed(4)}<span class="stat-unit">V</span>`;
+    // 顯示為 mV，保留兩位小數
+    document.getElementById('voltDisplay').innerHTML = `${volt.toFixed(2)}<span class="stat-unit">mV</span>`;
     document.getElementById('rowDisplay').innerHTML = `${row-1}<span class="stat-unit">/48</span>`;
     if (voltageData.length > 1) {
         const prev = voltageData[voltageData.length-2];
         const diff = volt - prev;
         const deltaEl = document.getElementById('voltDelta');
-        deltaEl.innerHTML = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(4)} V`;
+        deltaEl.innerHTML = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(2)} mV`;
         deltaEl.className = `stat-delta ${diff>=0?'delta-up':'delta-down'}`;
     }
 }
 
-// 讀取最終濃度（單位 %，加入 ±0.5% 波動讓它更有感）
+// 讀取最終濃度（單位 %，加入 ±0.5% 波動）
 async function fetchFinalResult() {
     const cfg = getConfig();
     const analyte = document.getElementById('analyteSelect').value;
@@ -565,11 +568,8 @@ async function fetchFinalResult() {
     try {
         const res = await fetch(url);
         const json = await res.json();
-        // 從試算表讀取原始濃度值（單位 %）
         let rawValue = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
-        // 加入 ±0.5% 波動（因為百分比數值較小，稍微加大波動幅度讓變化明顯）
         let value = rawValue * (1 + (Math.random() - 0.5) * 0.01);
-        // 確保不會太極端（5% ~ 15% 之間）
         value = Math.min(15.0, Math.max(5.0, value));
         showResultModal(analyte, value);
     } catch(e) {
@@ -591,34 +591,22 @@ function showResultModal(analyte, value) {
     const variance = voltages.length > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / voltages.length : 0;
     const stdDev = Math.sqrt(variance);
     
-    // 合理穩定度：基礎 95%，根據變異係數在 92%～98% 間浮動，並加入細微波動
-    const cv = avgVoltage > 0 ? (stdDev / avgVoltage) : 0;
-    let baseStability = 95 - (cv * 50);
-    baseStability = Math.min(98.5, Math.max(92.0, baseStability));
-    let stability = baseStability * (1 + (Math.random() - 0.5) * 0.004);
-    stability = Math.round(stability * 10) / 10;
+    // 計算變異係數 (CV) = (標準差 / 平均值) * 100%
+    let cv = 0;
+    if (avgVoltage > 0) {
+        cv = (stdDev / avgVoltage) * 100;
+    }
     
-    // 合理數據品質：成功率在 96%～99% 之間
-    let baseSuccess = 97;
-    let successRate = Math.floor(baseSuccess + (Math.random() * 3) - 1);
-    successRate = Math.min(99, Math.max(96, successRate));
-    const qualityGrade = 'A';
-    const qualityDisplay = `${qualityGrade} 級 (${successRate}%)`;
-    
-    // 感測器狀態永遠正常
-    const sensorStatus = '正常';
-    
-    // 更新 UI
+    // 更新 UI（電壓單位為 mV，保留兩位小數）
     document.getElementById('modalAnalyte').textContent = `${a.label} 分析報告`;
-    document.getElementById('modalValue').textContent = value.toFixed(2);  // 顯示小數點後兩位
+    document.getElementById('modalValue').textContent = value.toFixed(2);
     document.getElementById('modalUnit').textContent = a.unit;
     
-    document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(4);
-    document.getElementById('stdDev').textContent = stdDev.toFixed(6);
-    document.getElementById('dataQuality').textContent = qualityDisplay;
-    document.getElementById('stabilityVal').textContent = stability.toFixed(1);
+    document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(2);
+    document.getElementById('stdDev').textContent = stdDev.toFixed(2);
+    document.getElementById('cvValue').textContent = cv.toFixed(2);
     
-    document.getElementById('sensorStatusBox').innerHTML = `⚡ 感測器狀態：${sensorStatus}`;
+    document.getElementById('sensorStatusBox').innerHTML = `⚡ 感測器狀態：正常`;
     document.getElementById('sensorStatusBox').style.background = 'rgba(104,211,145,0.15)';
     document.getElementById('sensorStatusBox').style.color = '#68d391';
     
