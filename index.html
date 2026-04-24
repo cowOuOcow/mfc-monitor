@@ -434,7 +434,7 @@ async function testConnection() {
         let json;
         try { json = JSON.parse(text); } catch { json = null; }
         if (json && json.value !== undefined && !isNaN(json.value)) {
-            log(`✅ 連線成功！Row 2 數值 = ${parseFloat(json.value).toFixed(2)} mV`, 'success');
+            log(`✅ 連線成功！`, 'success');
             document.getElementById('connectionBadge').innerHTML = '🟢 已連接';
         } else {
             log(`❌ 連線失敗：${text.substring(0,100)}`, 'error');
