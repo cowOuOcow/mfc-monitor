@@ -241,7 +241,7 @@
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-label">當前電壓</div>
-            <div class="stat-value" id="voltDisplay">--<span class="stat-unit">V</span></div>
+            <div class="stat-value" id="voltDisplay">--<span class="stat-unit">mV</span></div>
             <div class="stat-delta" id="voltDelta"></div>
         </div>
         <div class="stat-card">
@@ -294,11 +294,11 @@
         <div class="result-detail-grid">
             <div class="detail-item">
                 <div class="detail-label">電壓平均值</div>
-                <div><span class="detail-number" id="avgVoltage">--</span><span class="detail-unit">V</span></div>
+                <div><span class="detail-number" id="avgVoltage">--</span><span class="detail-unit">mV</span></div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">電壓標準差</div>
-                <div><span class="detail-number" id="stdDev">--</span><span class="detail-unit">V</span></div>
+                <div><span class="detail-number" id="stdDev">--</span><span class="detail-unit">mV</span></div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">數據品質</div>
@@ -352,7 +352,7 @@ let lastReportData = null;
 const ctx = document.getElementById('liveChart').getContext('2d');
 chart = new Chart(ctx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: '電壓 V', data: [], borderColor: '#68d391', borderWidth: 2, pointRadius: 2 }] },
+    data: { labels: [], datasets: [{ label: '電壓 mV', data: [], borderColor: '#68d391', borderWidth: 2, pointRadius: 2 }] },
     options: {
         responsive: true, maintainAspectRatio: false,
         scales: { x:{ ticks:{color:'#64748b'} }, y:{ ticks:{color:'#68d391'} } }
