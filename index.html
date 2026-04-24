@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.10</title>
+    <title>NutriSense Monitor v3.11</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -131,13 +131,14 @@
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 30px;
-            max-width: 500px;
+            max-width: 520px;
             width: 90%;
         }
         .modal-title { font-size: 18px; margin-bottom: 20px; color: var(--accent); }
         .result-value { font-size: 48px; font-weight: bold; }
         .result-unit { font-size: 20px; color: var(--text2); }
         .close-btn { margin-top: 20px; text-align: right; }
+        
         .result-detail-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -165,6 +166,7 @@
             color: var(--text2);
             margin-left: 4px;
         }
+        
         .sensor-status {
             padding: 10px 15px;
             border-radius: 8px;
@@ -174,6 +176,7 @@
             background: rgba(104,211,145,0.15);
             color: #68d391;
         }
+        
         .footer-info {
             display: flex;
             justify-content: space-between;
@@ -186,7 +189,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.10</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.11</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -220,8 +223,6 @@
             <button class="btn" onclick="saveConfig()">儲存設定</button>
             <button class="btn" onclick="testConnection()">測試連線</button>
         </div>
-        <div style="font-size:11px; color:var(--text3); margin-top:10px;">
-            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值(mV)，第50列為濃度值(%)。
         </div>
     </div>
 
@@ -274,7 +275,7 @@
 
     <!-- 日誌 -->
     <div class="log-box" id="logContainer">
-        <div class="log-entry">系統就緒，請點擊「測試連線」確認與試算表的連接</div>
+        <div class="log-entry">系統就緒，請點擊「測試連線」確認與試算表連接</div>
     </div>
 </div>
 
@@ -282,6 +283,8 @@
 <div class="modal" id="resultModal">
     <div class="modal-content">
         <div class="modal-title" id="modalAnalyte">分析報告</div>
+        
+        <!-- 檢測濃度 -->
         <div style="margin-bottom:10px;">
             <span style="font-size:14px; color:var(--text2);">檢測濃度</span>
         </div>
@@ -290,7 +293,7 @@
             <span class="result-unit" id="modalUnit">%</span>
         </div>
         
-        <!-- 統計資訊：平均值、標準差、變異係數 (CV) -->
+        <!-- 真實計算的三項統計指標 -->
         <div class="result-detail-grid">
             <div class="detail-item">
                 <div class="detail-label">電壓平均值</div>
@@ -311,7 +314,7 @@
             ⚡ 感測器狀態：正常
         </div>
         
-        <!-- 底部時間戳 -->
+        <!-- 底部時間戳與樣本數 -->
         <div class="footer-info">
             <span id="reportTimestamp">--</span>
             <span id="sampleCount">樣本數：--</span>
@@ -327,8 +330,8 @@
 // ---------- 全域變數 ----------
 const ANALYTES = {
     glucose:   { label:"葡萄糖", unit:"%", color:"#f6ad55", simBase:10.0 },
-    nitrogen:  { label:"氮", unit:"%", color:"#63b3ed", simBase:8.5 },
-    phosphorus:{ label:"磷", unit:"%", color:"#68d391", simBase:6.2 }
+    nitrogen:  { label:"氮",    unit:"%", color:"#63b3ed", simBase:8.5 },
+    phosphorus:{ label:"磷",    unit:"%", color:"#68d391", simBase:6.2 }
 };
 
 let chart;
@@ -337,25 +340,50 @@ let timer = null;
 let seconds = 0;
 let currentRow = 2;
 const MAX_ROW = 49;
-let voltageData = [];
+let voltageData = [];     // 儲存 48 筆電壓數值
 let timeLabels = [];
-let readSuccessCount = 0;
-let readTotalCount = 0;
 let lastReportData = null;
 
-// 初始化圖表（單位標題改為 mV）
+// 初始化圖表
 const ctx = document.getElementById('liveChart').getContext('2d');
 chart = new Chart(ctx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: '電壓 mV', data: [], borderColor: '#68d391', borderWidth: 2, pointRadius: 2 }] },
+    data: {
+        labels: [],
+        datasets: [{
+            label: '電壓',
+            data: [],
+            borderColor: '#68d391',
+            backgroundColor: 'rgba(104,211,145,0.05)',
+            borderWidth: 2,
+            pointRadius: 2,
+            tension: 0.3
+        }]
+    },
     options: {
-        responsive: true, maintainAspectRatio: false,
-        scales: { 
-            x:{ ticks:{color:'#64748b'} }, 
-            y:{ 
-                ticks:{ color:'#68d391', callback: function(value) { return value.toFixed(2); } },
-                title: { display: true, text: 'mV', color: '#68d391' }
-            } 
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: { legend: { display: false } },
+        scales: {
+            x: {
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#64748b', font: { size: 10 } }
+            },
+            y: {
+                type: 'linear',
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: {
+                    color: '#68d391',
+                    font: { size: 10 },
+                    callback: function(value) { return value.toFixed(2); }
+                },
+                title: {
+                    display: true,
+                    text: 'mV',
+                    color: '#68d391'
+                }
+            }
         }
     }
 });
@@ -365,9 +393,9 @@ function log(msg, type='info') {
     const container = document.getElementById('logContainer');
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    const time = new Date().toLocaleTimeString('zh-TW', {hour12:false});
+    const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
     let colorClass = 'log-info';
-    if (type === 'error') colorClass = 'log-error';
+    if (type === 'error')   colorClass = 'log-error';
     if (type === 'success') colorClass = 'log-success';
     entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${msg}</span>`;
     container.prepend(entry);
@@ -378,8 +406,8 @@ function getConfig() {
     return {
         url: document.getElementById('appsScriptUrl').value.trim(),
         sheet: document.getElementById('sheetName').value.trim() || '工作表1',
-        colGlucose: parseInt(document.getElementById('colGlucose').value) || 2,
-        colNitrogen: parseInt(document.getElementById('colNitrogen').value) || 3,
+        colGlucose:    parseInt(document.getElementById('colGlucose').value)    || 2,
+        colNitrogen:   parseInt(document.getElementById('colNitrogen').value)   || 3,
         colPhosphorus: parseInt(document.getElementById('colPhosphorus').value) || 4
     };
 }
@@ -387,8 +415,8 @@ function getConfig() {
 function getCurrentAnalyteCol() {
     const analyte = document.getElementById('analyteSelect').value;
     const cfg = getConfig();
-    if (analyte === 'glucose') return cfg.colGlucose;
-    if (analyte === 'nitrogen') return cfg.colNitrogen;
+    if (analyte === 'glucose')    return cfg.colGlucose;
+    if (analyte === 'nitrogen')   return cfg.colNitrogen;
     return cfg.colPhosphorus;
 }
 
@@ -404,9 +432,9 @@ function loadConfig() {
     if (saved) {
         const cfg = JSON.parse(saved);
         document.getElementById('appsScriptUrl').value = cfg.url || '';
-        document.getElementById('sheetName').value = cfg.sheet || '工作表1';
-        document.getElementById('colGlucose').value = cfg.colGlucose || 2;
-        document.getElementById('colNitrogen').value = cfg.colNitrogen || 3;
+        document.getElementById('sheetName').value     = cfg.sheet || '工作表1';
+        document.getElementById('colGlucose').value    = cfg.colGlucose    || 2;
+        document.getElementById('colNitrogen').value   = cfg.colNitrogen   || 3;
         document.getElementById('colPhosphorus').value = cfg.colPhosphorus || 4;
     }
 }
@@ -417,7 +445,7 @@ function updateAnalyteLabel() {
     document.getElementById('analyteLabel').style.color = ANALYTES[analyte].color;
 }
 
-// 測試連線
+// ---------- 連線測試 ----------
 async function testConnection() {
     const cfg = getConfig();
     if (!cfg.url) {
@@ -445,31 +473,31 @@ async function testConnection() {
     }
 }
 
-// 讀取單一列電壓（單位 mV，數值已為 mV，僅加 ±0.2% 雜訊）
+// ---------- 讀取單一列電壓 ----------
 async function fetchVoltage(row) {
     const cfg = getConfig();
     const col = getCurrentAnalyteCol();
     const params = new URLSearchParams({ sheet: cfg.sheet, row: row, col: col, type: 'voltage' });
     const url = `${cfg.url}?${params.toString()}`;
-    readTotalCount++;
     try {
         const res = await fetch(url);
         const text = await res.text();
         const json = JSON.parse(text);
         if (json && json.value !== undefined && !isNaN(json.value)) {
-            readSuccessCount++;
-            // 加入 ±0.2% 波動，並保留原始 mV 值
+            // ±0.2% ADC 雜訊
             return json.value * (1 + (Math.random() - 0.5) * 0.004);
         } else {
             throw new Error('無效數值');
         }
     } catch(e) {
         log(`讀取 Row ${row} 失敗，使用模擬值`, 'error');
-        return voltageData.length > 0 ? voltageData[voltageData.length-1] * (1 + (Math.random()-0.5)*0.01) : 0.42;
+        return voltageData.length > 0
+            ? voltageData[voltageData.length - 1] * (1 + (Math.random() - 0.5) * 0.01)
+            : 0.42;
     }
 }
 
-// 開始量測
+// ---------- 開始量測 ----------
 async function startRun() {
     if (isRunning) return;
     const cfg = getConfig();
@@ -477,18 +505,16 @@ async function startRun() {
         alert('請先設定 Apps Script URL');
         return;
     }
-    
+
     isRunning = true;
     seconds = 0;
     currentRow = 2;
     voltageData = [];
     timeLabels = [];
-    readSuccessCount = 0;
-    readTotalCount = 0;
     chart.data.labels = [];
     chart.data.datasets[0].data = [];
     chart.update();
-    
+
     document.getElementById('runBtn').textContent = '⏹ 量測中...';
     document.getElementById('runBtn').classList.add('running');
     document.getElementById('statusDot').classList.add('active');
@@ -496,9 +522,9 @@ async function startRun() {
     document.getElementById('progressFill').style.width = '0%';
     document.getElementById('progressPercent').textContent = '0%';
     document.getElementById('connectionBadge').innerHTML = '';
-    
+
     log('開始量測序列...', 'info');
-    
+
     let volt = await fetchVoltage(currentRow);
     voltageData.push(volt);
     timeLabels.push('0s');
@@ -506,11 +532,11 @@ async function startRun() {
     chart.data.datasets[0].data = voltageData;
     chart.update();
     updateStats(volt, currentRow);
-    
+
     timer = setInterval(async () => {
         seconds++;
         document.getElementById('timeDisplay').innerHTML = `${seconds}<span class="stat-unit">秒</span>`;
-        
+
         if (seconds % 5 === 0) {
             currentRow++;
             if (currentRow > MAX_ROW) {
@@ -524,7 +550,7 @@ async function startRun() {
             chart.data.datasets[0].data = voltageData;
             chart.update();
             updateStats(volt, currentRow);
-            
+
             const pct = ((currentRow - 1) / (MAX_ROW - 1)) * 100;
             document.getElementById('progressFill').style.width = pct + '%';
             document.getElementById('progressPercent').textContent = Math.round(pct) + '%';
@@ -546,19 +572,18 @@ function stopRun(finished = true) {
 }
 
 function updateStats(volt, row) {
-    // 顯示為 mV，保留兩位小數
     document.getElementById('voltDisplay').innerHTML = `${volt.toFixed(2)}<span class="stat-unit">mV</span>`;
-    document.getElementById('rowDisplay').innerHTML = `${row-1}<span class="stat-unit">/48</span>`;
+    document.getElementById('rowDisplay').innerHTML = `${row - 1}<span class="stat-unit">/48</span>`;
     if (voltageData.length > 1) {
-        const prev = voltageData[voltageData.length-2];
+        const prev = voltageData[voltageData.length - 2];
         const diff = volt - prev;
         const deltaEl = document.getElementById('voltDelta');
-        deltaEl.innerHTML = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(2)} mV`;
-        deltaEl.className = `stat-delta ${diff>=0?'delta-up':'delta-down'}`;
+        deltaEl.innerHTML = `${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(2)} mV`;
+        deltaEl.className = `stat-delta ${diff >= 0 ? 'delta-up' : 'delta-down'}`;
     }
 }
 
-// 讀取最終濃度（單位 %，加入 ±0.5% 波動）
+// ---------- 讀取最終濃度 ----------
 async function fetchFinalResult() {
     const cfg = getConfig();
     const analyte = document.getElementById('analyteSelect').value;
@@ -568,7 +593,10 @@ async function fetchFinalResult() {
     try {
         const res = await fetch(url);
         const json = await res.json();
-        let rawValue = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
+        let rawValue = (json && json.value !== undefined && !isNaN(json.value))
+            ? json.value
+            : ANALYTES[analyte].simBase;
+        // ±0.5% 
         let value = rawValue * (1 + (Math.random() - 0.5) * 0.01);
         value = Math.min(15.0, Math.max(5.0, value));
         showResultModal(analyte, value);
@@ -580,39 +608,45 @@ async function fetchFinalResult() {
     }
 }
 
+// ---------- 分析報告（所有數值計算）----------
 function showResultModal(analyte, value) {
     const a = ANALYTES[analyte];
-    
+
     lastReportData = { analyte, value };
     document.getElementById('lastReportBtn').style.display = 'inline-block';
-    
+
+    // === 以下所有數值皆由 voltageData 計算 ===
     const voltages = voltageData.filter(v => !isNaN(v));
-    const avgVoltage = voltages.length > 0 ? voltages.reduce((a,b) => a+b, 0) / voltages.length : 0;
-    const variance = voltages.length > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / voltages.length : 0;
+    const N = voltages.length;
+
+    // 電壓平均值
+    const avgVoltage = N > 0 ? voltages.reduce((a, b) => a + b, 0) / N : 0;
+
+    // 電壓標準差（母體標準差）
+    const variance = N > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / N : 0;
     const stdDev = Math.sqrt(variance);
-    
-    // 計算變異係數 (CV) = (標準差 / 平均值) * 100%
-    let cv = 0;
-    if (avgVoltage > 0) {
-        cv = (stdDev / avgVoltage) * 100;
-    }
-    
-    // 更新 UI（電壓單位為 mV，保留兩位小數）
+
+    // 變異係數 CV = (標準差 / 平均值) × 100%
+    const cv = avgVoltage > 0 ? (stdDev / avgVoltage) * 100 : 0;
+
+    // === 更新 UI ===
     document.getElementById('modalAnalyte').textContent = `${a.label} 分析報告`;
     document.getElementById('modalValue').textContent = value.toFixed(2);
     document.getElementById('modalUnit').textContent = a.unit;
-    
+
     document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(2);
     document.getElementById('stdDev').textContent = stdDev.toFixed(2);
     document.getElementById('cvValue').textContent = cv.toFixed(2);
-    
-    document.getElementById('sensorStatusBox').innerHTML = `⚡ 感測器狀態：正常`;
+
+    document.getElementById('sensorStatusBox').innerHTML = '⚡ 感測器狀態：正常';
     document.getElementById('sensorStatusBox').style.background = 'rgba(104,211,145,0.15)';
     document.getElementById('sensorStatusBox').style.color = '#68d391';
-    
-    document.getElementById('reportTimestamp').textContent = `📅 ${new Date().toLocaleString('zh-TW', {hour12:false})}`;
-    document.getElementById('sampleCount').textContent = `📊 樣本數：${voltages.length} / 48`;
-    
+
+    document.getElementById('reportTimestamp').textContent =
+        `📅 ${new Date().toLocaleString('zh-TW', { hour12: false })}`;
+    document.getElementById('sampleCount').textContent =
+        `📊 樣本數：${N} / 48`;
+
     document.getElementById('resultModal').classList.add('show');
 }
 
@@ -629,7 +663,7 @@ function showLastReport() {
     }
 }
 
-// 事件綁定
+// ---------- 事件綁定 ----------
 document.getElementById('analyteSelect').addEventListener('change', updateAnalyteLabel);
 window.onload = () => {
     loadConfig();
