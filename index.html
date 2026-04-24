@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.12</title>
+    <title>NutriSense Monitor v3.13</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -186,7 +186,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.12</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.13</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -295,14 +295,11 @@
             </div>
             <div class="detail-item">
                 <div class="detail-label">電壓標準差</div>
-                <div><span class="detail-number" id="stdDev">--</span><span class="detail-unit">mV</span></div>
+                <div><span class="detail-number" id="stdDev">--</span><span class="detail-unit">mV (取最後10筆)</span></div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">變異係數 (CV)</div>
-                <div>
-                    <span class="detail-number" id="cvValue">--</span>
-                    <span class="detail-unit" id="cvUnit">% (取最後10筆)</span>
-                </div>
+                <div><span class="detail-number" id="cvValue">--</span><span class="detail-unit">% (取最後10筆)</span></div>
             </div>
         </div>
         
@@ -427,14 +424,14 @@ async function testConnection() {
     const col = getCurrentAnalyteCol();
     const params = new URLSearchParams({ sheet: cfg.sheet, row: 2, col: col, type: 'voltage' });
     const url = `${cfg.url}?${params.toString()}`;
-    log(`測試連線：Row 2, Col ${col}`, 'info');
+    log(`測試連線：Col ${col}`, 'info');
     try {
         const res = await fetch(url);
         const text = await res.text();
         let json;
         try { json = JSON.parse(text); } catch { json = null; }
         if (json && json.value !== undefined && !isNaN(json.value)) {
-            log(`✅ 連線成功！`, 'success');
+            log(`✅ 連線成功`, 'success');
             document.getElementById('connectionBadge').innerHTML = '🟢 已連接';
         } else {
             log(`❌ 連線失敗：${text.substring(0,100)}`, 'error');
@@ -458,7 +455,6 @@ async function fetchVoltage(row) {
         const json = JSON.parse(text);
         if (json && json.value !== undefined && !isNaN(json.value)) {
             readSuccessCount++;
-            // 直接回傳原始值
             return json.value;
         } else {
             throw new Error('無效數值');
@@ -582,24 +578,19 @@ function showResultModal(analyte, value) {
     document.getElementById('lastReportBtn').style.display = 'inline-block';
     
     const voltages = voltageData.filter(v => !isNaN(v));
+    // 電壓平均值：全部 48 筆
     const avgVoltage = voltages.length > 0 ? voltages.reduce((a,b) => a+b, 0) / voltages.length : 0;
-    const variance = voltages.length > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / voltages.length : 0;
-    const stdDev = Math.sqrt(variance);
     
-    // --- 計算 CV：僅取最後 10 筆電壓資料 ---
+    // 取最後 10 筆計算標準差與 CV
     const last10 = voltages.slice(-10);
+    let stdDev = 0;
     let cv = 0;
     if (last10.length >= 2) {
         const avg10 = last10.reduce((a,b) => a+b, 0) / last10.length;
         const var10 = last10.reduce((sum, v) => sum + Math.pow(v - avg10, 2), 0) / last10.length;
-        const std10 = Math.sqrt(var10);
+        stdDev = Math.sqrt(var10);
         if (avg10 > 0) {
-            cv = (std10 / avg10) * 100;
-        }
-    } else if (voltages.length >= 2) {
-        // 如果總資料不足 10 筆，則用全部資料計算
-        if (avgVoltage > 0) {
-            cv = (stdDev / avgVoltage) * 100;
+            cv = (stdDev / avg10) * 100;
         }
     }
     
@@ -611,7 +602,6 @@ function showResultModal(analyte, value) {
     document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(2);
     document.getElementById('stdDev').textContent = stdDev.toFixed(2);
     document.getElementById('cvValue').textContent = cv.toFixed(2);
-    // CV 單位備註已在 HTML 中預設
     
     document.getElementById('sensorStatusBox').innerHTML = `⚡ 感測器狀態：正常`;
     document.getElementById('sensorStatusBox').style.background = 'rgba(104,211,145,0.15)';
