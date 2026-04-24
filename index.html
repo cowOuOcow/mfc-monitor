@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriSense Monitor v3.11</title>
+    <title>NutriSense Monitor v3.12</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -186,7 +186,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.11</span></div>
+        <div class="logo">NUTRI<span>SENSE</span> <span style="font-size:12px; color:var(--text3); margin-left:10px;">v3.12</span></div>
         <div class="status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">待機中</span>
@@ -219,10 +219,6 @@
             </div>
             <button class="btn" onclick="saveConfig()">儲存設定</button>
             <button class="btn" onclick="testConnection()">測試連線</button>
-        </div>
-        <div style="font-size:11px; color:var(--text3); margin-top:10px;">
-            ※ 試算表需設定為「知道連結的人可檢視」。第2~49列為電壓值(mV)，第50列為濃度值(%)。<br>
-            ※ 本版本直接使用原始數據，不添加任何模擬雜訊。
         </div>
     </div>
 
@@ -275,7 +271,7 @@
 
     <!-- 日誌 -->
     <div class="log-box" id="logContainer">
-        <div class="log-entry">系統就緒，請點擊「測試連線」確認與試算表的連接</div>
+        <div class="log-entry">系統就緒，請點擊「測試連線」確認與試算表間的連接</div>
     </div>
 </div>
 
@@ -303,7 +299,10 @@
             </div>
             <div class="detail-item">
                 <div class="detail-label">變異係數 (CV)</div>
-                <div><span class="detail-number" id="cvValue">--</span><span class="detail-unit">%</span></div>
+                <div>
+                    <span class="detail-number" id="cvValue">--</span>
+                    <span class="detail-unit" id="cvUnit">% (取最後10筆)</span>
+                </div>
             </div>
         </div>
         
@@ -446,7 +445,7 @@ async function testConnection() {
     }
 }
 
-// 讀取單一列電壓（直接回傳原始值，不加任何雜訊）
+// 讀取單一列電壓
 async function fetchVoltage(row) {
     const cfg = getConfig();
     const col = getCurrentAnalyteCol();
@@ -459,14 +458,13 @@ async function fetchVoltage(row) {
         const json = JSON.parse(text);
         if (json && json.value !== undefined && !isNaN(json.value)) {
             readSuccessCount++;
-            // 直接回傳原始值（不加工）
+            // 直接回傳原始值
             return json.value;
         } else {
             throw new Error('無效數值');
         }
     } catch(e) {
         log(`讀取 Row ${row} 失敗，使用前一筆原始值`, 'error');
-        // 容錯插補：直接使用前一筆有效值（不加雜訊）
         return voltageData.length > 0 ? voltageData[voltageData.length-1] : 0.0;
     }
 }
@@ -559,7 +557,7 @@ function updateStats(volt, row) {
     }
 }
 
-// 讀取最終濃度（直接使用原始值，不加波動）
+// 讀取最終濃度
 async function fetchFinalResult() {
     const cfg = getConfig();
     const analyte = document.getElementById('analyteSelect').value;
@@ -570,7 +568,6 @@ async function fetchFinalResult() {
         const res = await fetch(url);
         const json = await res.json();
         let rawValue = (json && json.value !== undefined && !isNaN(json.value)) ? json.value : ANALYTES[analyte].simBase;
-        // 直接使用原始值，不加任何波動
         showResultModal(analyte, rawValue);
     } catch(e) {
         log('讀取最終濃度失敗，使用預設模擬值', 'error');
@@ -589,13 +586,24 @@ function showResultModal(analyte, value) {
     const variance = voltages.length > 0 ? voltages.reduce((sum, v) => sum + Math.pow(v - avgVoltage, 2), 0) / voltages.length : 0;
     const stdDev = Math.sqrt(variance);
     
-    // 計算變異係數 (CV) = (標準差 / 平均值) * 100%
+    // --- 計算 CV：僅取最後 10 筆電壓資料 ---
+    const last10 = voltages.slice(-10);
     let cv = 0;
-    if (avgVoltage > 0) {
-        cv = (stdDev / avgVoltage) * 100;
+    if (last10.length >= 2) {
+        const avg10 = last10.reduce((a,b) => a+b, 0) / last10.length;
+        const var10 = last10.reduce((sum, v) => sum + Math.pow(v - avg10, 2), 0) / last10.length;
+        const std10 = Math.sqrt(var10);
+        if (avg10 > 0) {
+            cv = (std10 / avg10) * 100;
+        }
+    } else if (voltages.length >= 2) {
+        // 如果總資料不足 10 筆，則用全部資料計算
+        if (avgVoltage > 0) {
+            cv = (stdDev / avgVoltage) * 100;
+        }
     }
     
-    // 更新 UI（原始數據，無雜訊）
+    // 更新 UI
     document.getElementById('modalAnalyte').textContent = `${a.label} 分析報告`;
     document.getElementById('modalValue').textContent = value.toFixed(2);
     document.getElementById('modalUnit').textContent = a.unit;
@@ -603,6 +611,7 @@ function showResultModal(analyte, value) {
     document.getElementById('avgVoltage').textContent = avgVoltage.toFixed(2);
     document.getElementById('stdDev').textContent = stdDev.toFixed(2);
     document.getElementById('cvValue').textContent = cv.toFixed(2);
+    // CV 單位備註已在 HTML 中預設
     
     document.getElementById('sensorStatusBox').innerHTML = `⚡ 感測器狀態：正常`;
     document.getElementById('sensorStatusBox').style.background = 'rgba(104,211,145,0.15)';
